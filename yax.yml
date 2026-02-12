@@ -1,0 +1,5 @@
+build:
+  agentsmd:
+    from:
+    - https://github.com/hekonsek/mcp-terminal-script/blob/main/_agents.md
+    - https://github.com/hekonsek/adr-node-cli/blob/main/_agents.md
