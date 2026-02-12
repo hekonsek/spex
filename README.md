@@ -1,3 +1,17 @@
-# spex: AI-friendly project specifications
+# spex
 
-`spex` makes it easy to create, maintain and reuse AI-friendly project specifications. Use `spex` to make your project is easier to understand for agentic AI tooling like Codex, Cloud Code oo Copilot. 
+`spex` is a Node.js CLI for AI-friendly project specifications.
+
+## Bootstrap status
+
+The CLI is intentionally bootstrapped with a single command:
+
+- `version`: prints the current project version from `package.json`
+
+## Development
+
+```bash
+npm install
+npm run build
+node dist/cli/cli.js version
+```
