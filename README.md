@@ -4,23 +4,23 @@ Spex makes it easy to create, maintain and reuse AI-friendly project specificati
 
 ## Spex specification model
 
-Spex specification (or simply just Spex) consists of **items** of given **types** (like **instruction** or **ADR (Architecture Decision Record)**).
+Spex specification (or simply just Spex) is a collection of **items** of given **types** (like **instruction** or **ADR (Architecture Decision Record)**).
 
 Items are usually markdown files, grouped by type, locted in `spex` directory in your project. It means that Spex specification in your project can look like the following:
 
 ```
 📁 your_project
-    📁 spex
-        📁 adr
-            📄 adr_0001_use_aws.md
-            📄 adr_0002_use_lambda.md
-        📁 instruction
-            📄 instruction_0001_use_this_script_to_check_logs.md
+  📁 spex
+    📁 adr
+      📄 adr_0001_use_aws.md
+      📄 adr_0002_use_lambda.md
+    📁 instruction
+      📄 instruction_0001_use_this_script_to_check_logs.md
 ```
 
 ### Packaging
 
-Collection of items intended to be reused is called **package**. Package is identified using **namespace** and **name**.
+Spex specification intended to be reused is called **package**. Package is identified using **namespace** and **name**.
 
 If package is distributed using GitHub (which is a default behavior for Spex) then package is a GitHubn repository with GitHub user name or organization name representing package namespace and repository name representing package name.
 
