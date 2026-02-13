@@ -11,7 +11,8 @@
     "build": "tsc -p tsconfig.json && chmod +x dist/cli/cli.js",
     "check": "tsc --noEmit",
     "start": "node dist/cli/cli.js",
-    "release": "npm version minor && git push --follow-tags"
+    "release": "npm version minor && git push --follow-tags",
+    "install": "npm install -g https://github.com/hekonsek/spex/archive/refs/tags/v${npm_package_version}.tar.gz"
   },
   "engines": {
     "node": ">=20.0.0"
