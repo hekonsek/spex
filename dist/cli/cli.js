@@ -2,6 +2,7 @@
 import chalk from "chalk";
 import { Command } from "commander";
 import ora from "ora";
+import { BuildService } from "../core/build/build-service.js";
 import { VersionService, readPackageVersion } from "../core/version/version-service.js";
 function isInteractive() {
     return Boolean(process.stdout.isTTY && process.stderr.isTTY && !process.env.CI);
@@ -32,5 +33,16 @@ program
         console.error(chalk.red(`ERROR ${message}`));
         process.exitCode = 1;
     }
+});
+program
+    .command("build")
+    .description("Display build message")
+    .action(() => {
+    const service = new BuildService({
+        onBuildStarted(message) {
+            console.log(message);
+        },
+    });
+    service.run();
 });
 await program.parseAsync(process.argv);
