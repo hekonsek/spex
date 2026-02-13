@@ -8,7 +8,7 @@
     "spex": "dist/cli/cli.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && chmod +x dist/cli/cli.js",
     "check": "tsc --noEmit",
     "start": "node dist/cli/cli.js",
     "release": "npm version minor && git push --follow-tags"
