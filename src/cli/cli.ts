@@ -2,6 +2,8 @@
 import chalk from "chalk";
 import { Command } from "commander";
 import ora from "ora";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { BuildService } from "../core/build/build-service.js";
 import {
   SpexValidationError,
@@ -12,6 +14,12 @@ import { VersionService, readPackageVersion } from "../core/version/version-serv
 
 function isInteractive(): boolean {
   return Boolean(process.stdout.isTTY && process.stderr.isTTY && !process.env.CI);
+}
+
+function resolvePackageRootPath(): string {
+  const cliFilePath = fileURLToPath(import.meta.url);
+  const cliDirectoryPath = dirname(cliFilePath);
+  return resolve(cliDirectoryPath, "..", "..");
 }
 
 const program = new Command();
@@ -34,7 +42,7 @@ program
     });
 
     try {
-      const version = await readPackageVersion();
+      const version = await readPackageVersion(resolvePackageRootPath());
       service.run({ version });
     } catch (error: unknown) {
       spinner?.fail("Unable to read package version");
