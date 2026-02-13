@@ -3,6 +3,11 @@ import chalk from "chalk";
 import { Command } from "commander";
 import ora from "ora";
 import { BuildService } from "../core/build/build-service.js";
+import {
+  SpexValidationError,
+  type SupportedSpexType,
+  ValidateService,
+} from "../core/validate/validate-service.js";
 import { VersionService, readPackageVersion } from "../core/version/version-service.js";
 
 function isInteractive(): boolean {
@@ -50,6 +55,54 @@ program
     });
 
     service.run();
+  });
+
+program
+  .command("validate")
+  .description("Validate spex structure in current directory")
+  .action(async (): Promise<void> => {
+    const spinner = isInteractive() ? ora("Validating spex structure").start() : undefined;
+
+    const service = new ValidateService({
+      onValidationStarted(cwd: string): void {
+        if (!spinner) {
+          console.log(chalk.dim(`Checking ${cwd}`));
+        }
+      },
+      onTypeDirectoryValidated(type: SupportedSpexType, markdownFileCount: number): void {
+        if (spinner) {
+          spinner.text = `Checked spex/${type}`;
+          return;
+        }
+
+        console.log(chalk.dim(`Checked spex/${type}: ${markdownFileCount} markdown file(s)`));
+      },
+      onValidationPassed(result): void {
+        const validatedTypeNames = result.validatedTypes.map(({ type }) => type).join(", ");
+        const message = `OK valid spex structure (${validatedTypeNames})`;
+        spinner?.succeed(chalk.green(message));
+        if (!spinner) {
+          console.log(chalk.green(message));
+        }
+      },
+    });
+
+    try {
+      await service.run({ cwd: process.cwd() });
+    } catch (error: unknown) {
+      spinner?.fail("Spex structure is invalid");
+
+      if (error instanceof SpexValidationError) {
+        for (const issue of error.issues) {
+          console.error(chalk.red(`ERROR ${issue}`));
+        }
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(chalk.red(`ERROR ${message}`));
+      }
+
+      process.exitCode = 1;
+    }
   });
 
 await program.parseAsync(process.argv);
