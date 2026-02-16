@@ -12,7 +12,24 @@ Spex packages can be identified using full GitHub URL (for example `github.com/m
 
 ## Package import
 
-When package is important into a project, it is copied into local `.spex` directory in the project, into `imports` subdirectory. `.spex/imports` directory then contains name of the package host (for example github.com for GitHub) and finally the package contents itself (copy of the downloaded repository contents).
+When package is imported into a project, it is copied into a local `.spex` directory in the project, into `imports` subdirectory. `.spex/imports` directory then contains name of the package host (for example github.com for GitHub) and finally the package contents itself (copy of the downloaded repository contents).
+
+For example the following package repository...
+
+```
+📁 adr-node
+  📁 .git
+  📁 some_unrelevant_directory
+  📁 spex
+    📁 adr
+      📄 adr_0001_use_aws.md
+      📄 adr_0002_use_lambda.md
+    📁 instruction
+      📄 instruction_0001_use_this_script_to_check_logs.md
+  📄 some_unrelevant_file.txt
+```
+
+Should be imported into a following structure:
 
 ```
 📁 your_project
@@ -24,3 +41,5 @@ When package is important into a project, it is copied into local `.spex` direct
       📁 instruction
         📄 instruction_0001_use_this_script_to_check_logs.md
 ```
+
+Please note how only contents of `spex` directory in package repository is imported into `.spex/imports` in local project. 
