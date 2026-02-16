@@ -9,3 +9,18 @@ For example GitHub repository `https://github.com/myorg/adr-node` containing ADR
 ## Package identifier
 
 Spex packages can be identified using full GitHub URL (for example `github.com/myorg/adr-node`) or using shorter version with namespace and name only (for example `myorg/adr-node`). The latter identifier format assumes that package is hosted at GitHub.
+
+## Package import
+
+When package is important into a project, it is copied into local `.spex` directory in the project, into `imports` subdirectory. `.spex/imports` directory then contains name of the package host (for example github.com for GitHub) and finally the package contents itself (copy of the downloaded repository contents).
+
+```
+📁 your_project
+  📁 .spex
+    📁 imports/github.com/myorg/adr-node
+      📁 adr
+        📄 adr_0001_use_aws.md
+        📄 adr_0002_use_lambda.md
+      📁 instruction
+        📄 instruction_0001_use_this_script_to_check_logs.md
+```
