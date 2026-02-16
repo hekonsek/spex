@@ -1,4 +1,4 @@
-# `spex validate`
+# spex validate
 
 Executing `spex validate` command should validate that current directory is a valid Spex project.
 
