@@ -31,12 +31,7 @@ function startInterruptibleSpinner(text: string): { spinner?: Ora; dispose: () =
   const onSigint = (): void => {
     spinner.stop();
     process.off("SIGINT", onSigint);
-
-    try {
-      process.kill(process.pid, "SIGINT");
-    } catch {
-      process.exit(130);
-    }
+    process.exit(130);
   };
 
   process.on("SIGINT", onSigint);
