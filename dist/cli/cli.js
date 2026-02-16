@@ -15,6 +15,29 @@ function resolvePackageRootPath() {
     const cliDirectoryPath = dirname(cliFilePath);
     return resolve(cliDirectoryPath, "..", "..");
 }
+function startInterruptibleSpinner(text) {
+    if (!isInteractive()) {
+        return { dispose: () => { } };
+    }
+    const spinner = ora({ text, discardStdin: false }).start();
+    const onSigint = () => {
+        spinner.stop();
+        process.off("SIGINT", onSigint);
+        try {
+            process.kill(process.pid, "SIGINT");
+        }
+        catch {
+            process.exit(130);
+        }
+    };
+    process.on("SIGINT", onSigint);
+    return {
+        spinner,
+        dispose: () => {
+            process.off("SIGINT", onSigint);
+        },
+    };
+}
 const program = new Command();
 program.name("spex");
 program.description("AI-friendly project specifications");
@@ -22,7 +45,7 @@ program
     .command("version")
     .description("Print current project version")
     .action(async () => {
-    const spinner = isInteractive() ? ora("Reading package version").start() : undefined;
+    const { spinner, dispose } = startInterruptibleSpinner("Reading package version");
     const service = new VersionService({
         onVersionResolved(version) {
             spinner?.succeed(chalk.green(`OK version ${version}`));
@@ -41,12 +64,15 @@ program
         console.error(chalk.red(`ERROR ${message}`));
         process.exitCode = 1;
     }
+    finally {
+        dispose();
+    }
 });
 program
     .command("build")
     .description("Prepare current project to work with Spex")
     .action(async () => {
-    const spinner = isInteractive() ? ora("Preparing Spex project").start() : undefined;
+    const { spinner, dispose } = startInterruptibleSpinner("Preparing Spex project");
     const service = new BuildService({
         onBuildStarted(cwd) {
             if (!spinner) {
@@ -130,12 +156,15 @@ program
         }
         process.exitCode = 1;
     }
+    finally {
+        dispose();
+    }
 });
 program
     .command("validate")
     .description("Validate spex structure in current directory")
     .action(async () => {
-    const spinner = isInteractive() ? ora("Validating spex structure").start() : undefined;
+    const { spinner, dispose } = startInterruptibleSpinner("Validating spex structure");
     const service = new ValidateService({
         onValidationStarted(cwd) {
             if (!spinner) {
@@ -173,6 +202,9 @@ program
             console.error(chalk.red(`ERROR ${message}`));
         }
         process.exitCode = 1;
+    }
+    finally {
+        dispose();
     }
 });
 await program.parseAsync(process.argv);
