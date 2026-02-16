@@ -54,15 +54,98 @@ program
 
 program
   .command("build")
-  .description("Display build message")
-  .action((): void => {
+  .description("Prepare current project to work with Spex")
+  .action(async (): Promise<void> => {
+    const spinner = isInteractive() ? ora("Preparing Spex project").start() : undefined;
+
     const service = new BuildService({
-      onBuildStarted(message: string): void {
-        console.log(message);
+      onBuildStarted(cwd: string): void {
+        if (!spinner) {
+          console.log(chalk.dim(`Building Spex project in ${cwd}`));
+        }
+      },
+      onValidationStarted(): void {
+        if (spinner) {
+          spinner.text = "Validating spex structure";
+        }
+      },
+      onTypeDirectoryValidated(type: SupportedSpexType, markdownFileCount: number): void {
+        if (spinner) {
+          spinner.text = `Validated spex/${type}`;
+          return;
+        }
+
+        console.log(chalk.dim(`Validated spex/${type}: ${markdownFileCount} markdown file(s)`));
+      },
+      onValidationPassed(): void {
+        if (spinner) {
+          spinner.text = "Writing AGENTS.md";
+        }
+      },
+      onAgentsFileWritten(path: string): void {
+        if (spinner) {
+          spinner.text = "Checking .spex/spex.yml";
+          return;
+        }
+
+        console.log(chalk.dim(`Wrote ${path}`));
+      },
+      onBuildFileDetected(path: string): void {
+        if (spinner) {
+          spinner.text = "Reading .spex/spex.yml";
+          return;
+        }
+
+        console.log(chalk.dim(`Found ${path}`));
+      },
+      onBuildFileMissing(path: string): void {
+        if (!spinner) {
+          console.log(chalk.dim(`No build file found at ${path}; skipping package imports.`));
+        }
+      },
+      onBuildPackagesResolved(packageIds: string[]): void {
+        if (!spinner) {
+          console.log(chalk.dim(`Packages to import: ${packageIds.length}`));
+        }
+      },
+      onPackageImportStarted(packageId: string, sourceUrl: string, targetPath: string): void {
+        if (spinner) {
+          spinner.text = `Importing ${packageId}`;
+          return;
+        }
+
+        console.log(chalk.dim(`Importing ${packageId} from ${sourceUrl} to ${targetPath}`));
+      },
+      onPackageImported(importedPackage): void {
+        if (!spinner) {
+          console.log(chalk.green(`OK imported ${importedPackage.packageId}`));
+        }
+      },
+      onBuildFinished(result): void {
+        const summary = `OK build completed (${result.importedPackages.length} package(s) imported)`;
+        spinner?.succeed(chalk.green(summary));
+        if (!spinner) {
+          console.log(chalk.green(summary));
+        }
       },
     });
 
-    service.run();
+    try {
+      await service.run({ cwd: process.cwd() });
+    } catch (error: unknown) {
+      spinner?.fail("Build failed");
+
+      if (error instanceof SpexValidationError) {
+        for (const issue of error.issues) {
+          console.error(chalk.red(`ERROR ${issue}`));
+        }
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(chalk.red(`ERROR ${message}`));
+      }
+
+      process.exitCode = 1;
+    }
   });
 
 program
