@@ -241,6 +241,7 @@ function parsePackageId(rawPackageId: string): ParsedPackageId {
 async function clonePackageToPath(cloneUrl: string, targetPath: string, cwd: string): Promise<void> {
   const temporaryBasePath = await mkdtemp(resolve(tmpdir(), "spex-import-"));
   const temporaryClonePath = resolve(temporaryBasePath, "repo");
+  const clonedSpexPath = resolve(temporaryClonePath, "spex");
 
   try {
     await execFileAsync("git", ["clone", "--depth", "1", cloneUrl, temporaryClonePath], {
@@ -248,10 +249,13 @@ async function clonePackageToPath(cloneUrl: string, targetPath: string, cwd: str
       maxBuffer: 10 * 1024 * 1024,
     });
 
-    await rm(resolve(temporaryClonePath, ".git"), { recursive: true, force: true });
+    if (!(await pathExists(clonedSpexPath))) {
+      throw new Error(`Missing spex directory in downloaded package: ${cloneUrl}`);
+    }
+
     await rm(targetPath, { recursive: true, force: true });
     await mkdir(dirname(targetPath), { recursive: true });
-    await cp(temporaryClonePath, targetPath, { recursive: true });
+    await cp(clonedSpexPath, targetPath, { recursive: true });
   } catch (error: unknown) {
     const typedError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
     const details = [typedError.stderr, typedError.stdout].filter(Boolean).join("\n").trim();

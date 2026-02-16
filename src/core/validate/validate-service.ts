@@ -1,7 +1,7 @@
 import { readdir, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 
-export const supportedSpexTypes = ["adr", "instruction", "dataformat"] as const;
+export const supportedSpexTypes = ["adr", "instruction", "dataformat", "feature"] as const;
 export type SupportedSpexType = (typeof supportedSpexTypes)[number];
 
 export interface ValidateServiceInput {
@@ -71,7 +71,7 @@ export class ValidateService {
 
       if (existingTypeDirectories.length === 0) {
         issues.push(
-          "Missing supported type directory in spex. Expected at least one of: adr, instruction, dataformat.",
+          "Missing supported type directory in spex. Expected at least one of: adr, instruction, dataformat, feature.",
         );
       }
 
