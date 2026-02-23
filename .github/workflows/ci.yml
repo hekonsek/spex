@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  CI:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install spex
+        run: npm install -g https://github.com/hekonsek/spex/archive/refs/tags/v0.8.0.tar.gz
+
+      - name: Spex validate
+        run: spex validate
