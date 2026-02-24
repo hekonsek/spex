@@ -1,8 +1,10 @@
 import { execFile } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
+import { Minimatch } from "minimatch";
+import { parse as parseYaml } from "yaml";
 import {
   type SupportedSpexType,
   type ValidateServiceResult,
@@ -77,88 +79,117 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-function stripInlineComment(value: string): string {
-  let inSingleQuote = false;
-  let inDoubleQuote = false;
-
-  for (let index = 0; index < value.length; index += 1) {
-    const character = value[index];
-
-    if (character === "'" && !inDoubleQuote) {
-      inSingleQuote = !inSingleQuote;
-      continue;
-    }
-
-    if (character === '"' && !inSingleQuote) {
-      inDoubleQuote = !inDoubleQuote;
-      continue;
-    }
-
-    if (character === "#" && !inSingleQuote && !inDoubleQuote) {
-      const previousCharacter = index > 0 ? value[index - 1] : "";
-      if (!previousCharacter || /\s/.test(previousCharacter)) {
-        return value.slice(0, index).trimEnd();
-      }
-    }
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
   }
 
-  return value.trimEnd();
+  return value as Record<string, unknown>;
 }
 
-function unquote(value: string): string {
-  if (value.length < 2) {
-    return value;
+function parseStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
   }
 
-  const startsWithDoubleQuote = value.startsWith('"') && value.endsWith('"');
-  const startsWithSingleQuote = value.startsWith("'") && value.endsWith("'");
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
-  if (startsWithDoubleQuote || startsWithSingleQuote) {
-    return value.slice(1, -1);
-  }
-
-  return value;
+function parseBuildFileYaml(buildFileContent: string): Record<string, unknown> {
+  const parsed = parseYaml(buildFileContent) as unknown;
+  return asRecord(parsed) ?? {};
 }
 
 function parseBuildFilePackages(buildFileContent: string): string[] {
-  const lines = buildFileContent.split(/\r?\n/);
-  const packageIds: string[] = [];
-  let isPackagesSection = false;
+  const root = parseBuildFileYaml(buildFileContent);
+  return parseStringList(root["packages"]);
+}
 
-  for (const line of lines) {
-    const trimmedLine = line.trim();
+function parseBuildFileExportIgnores(buildFileContent: string): string[] {
+  const root = parseBuildFileYaml(buildFileContent);
+  const exportSection = asRecord(root["export"]);
+  return parseStringList(exportSection?.["ignores"]);
+}
 
-    if (!trimmedLine || trimmedLine.startsWith("#")) {
-      continue;
-    }
+function normalizeGlobPath(path: string): string {
+  return path.replaceAll("\\", "/").replace(/^\/+/, "").replace(/\/+$/, "");
+}
 
-    if (!isPackagesSection) {
-      if (trimmedLine.startsWith("packages:")) {
-        isPackagesSection = true;
-      }
-      continue;
-    }
+interface CompiledIgnorePattern {
+  matcher: Minimatch;
+}
 
-    const leftTrimmedLine = line.trimStart();
+function compileIgnorePatterns(patterns: string[]): CompiledIgnorePattern[] {
+  return patterns
+    .map((pattern) => pattern.trim())
+    .filter(Boolean)
+    .map((pattern) => ({
+      matcher: new Minimatch(normalizeGlobPath(pattern), { dot: true }),
+    }));
+}
 
-    if (!leftTrimmedLine.startsWith("-")) {
-      const isTopLevelYamlKey =
-        line.length === leftTrimmedLine.length && /^[A-Za-z0-9_-]+:/.test(leftTrimmedLine);
-      if (isTopLevelYamlKey) {
-        break;
-      }
-
-      continue;
-    }
-
-    const rawValue = leftTrimmedLine.slice(1).trim();
-    const packageId = unquote(stripInlineComment(rawValue).trim());
-    if (packageId) {
-      packageIds.push(packageId);
-    }
+function matchesAnyIgnorePattern(
+  relativePath: string,
+  compiledIgnorePatterns: CompiledIgnorePattern[],
+): boolean {
+  const normalizedRelativePath = normalizeGlobPath(relativePath);
+  if (!normalizedRelativePath) {
+    return false;
   }
 
-  return packageIds;
+  return compiledIgnorePatterns.some((pattern) => pattern.matcher.match(normalizedRelativePath));
+}
+
+function matchesAnyIgnoreDirectoryPattern(
+  relativePath: string,
+  compiledIgnorePatterns: CompiledIgnorePattern[],
+): boolean {
+  const normalizedRelativePath = normalizeGlobPath(relativePath);
+  if (!normalizedRelativePath) {
+    return false;
+  }
+
+  return compiledIgnorePatterns.some(
+    (pattern) =>
+      pattern.matcher.match(normalizedRelativePath) || pattern.matcher.match(normalizedRelativePath, true),
+  );
+}
+
+async function readExportIgnorePatterns(buildFilePath: string): Promise<string[]> {
+  if (!(await pathExists(buildFilePath))) {
+    return [];
+  }
+
+  const buildFileContent = await readFile(buildFilePath, "utf8");
+  return parseBuildFileExportIgnores(buildFileContent);
+}
+
+async function copyPackageSpexDirectory(
+  sourcePath: string,
+  targetPath: string,
+  exportIgnorePatterns: string[],
+): Promise<void> {
+  const compiledIgnorePatterns = compileIgnorePatterns(exportIgnorePatterns);
+
+  await cp(sourcePath, targetPath, {
+    recursive: true,
+    filter: async (sourceEntryPath: string): Promise<boolean> => {
+      const relativeEntryPath = normalizeGlobPath(relative(sourcePath, sourceEntryPath));
+      if (!relativeEntryPath) {
+        return true;
+      }
+
+      const sourceEntryStat = await stat(sourceEntryPath);
+      if (sourceEntryStat.isDirectory()) {
+        return !matchesAnyIgnoreDirectoryPattern(relativeEntryPath, compiledIgnorePatterns);
+      }
+
+      return !matchesAnyIgnorePattern(relativeEntryPath, compiledIgnorePatterns);
+    },
+  });
 }
 
 function assertSafePathSegment(label: string, value: string): void {
@@ -242,6 +273,7 @@ async function clonePackageToPath(cloneUrl: string, targetPath: string, cwd: str
   const temporaryBasePath = await mkdtemp(resolve(tmpdir(), "spex-import-"));
   const temporaryClonePath = resolve(temporaryBasePath, "repo");
   const clonedSpexPath = resolve(temporaryClonePath, "spex");
+  const clonedBuildFilePath = resolve(temporaryClonePath, ".spex", "spex.yml");
 
   try {
     await execFileAsync("git", ["clone", "--depth", "1", cloneUrl, temporaryClonePath], {
@@ -253,9 +285,11 @@ async function clonePackageToPath(cloneUrl: string, targetPath: string, cwd: str
       throw new Error(`Missing spex directory in downloaded package: ${cloneUrl}`);
     }
 
+    const exportIgnorePatterns = await readExportIgnorePatterns(clonedBuildFilePath);
+
     await rm(targetPath, { recursive: true, force: true });
     await mkdir(dirname(targetPath), { recursive: true });
-    await cp(clonedSpexPath, targetPath, { recursive: true });
+    await copyPackageSpexDirectory(clonedSpexPath, targetPath, exportIgnorePatterns);
   } catch (error: unknown) {
     const typedError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
     const details = [typedError.stderr, typedError.stdout].filter(Boolean).join("\n").trim();
