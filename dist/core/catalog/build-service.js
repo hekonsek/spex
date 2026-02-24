@@ -35,11 +35,11 @@ function parseCatalogPackages(yamlContent) {
         if (typeof item !== "string") {
             throw new SpexCatalogBuildError("Catalog packages list must contain only string values.");
         }
-        const url = item.trim();
-        if (!url) {
+        const id = item.trim();
+        if (!id) {
             throw new SpexCatalogBuildError("Catalog packages list must not contain empty values.");
         }
-        packages.push({ url, updated: 0 });
+        packages.push({ id, name: id, updated: 0 });
     }
     return packages;
 }
@@ -113,8 +113,32 @@ function parseCatalogPackageIdentifier(rawPackageId) {
         cloneUrl: `https://${host}/${namespace}/${name}.git`,
     };
 }
-async function readRepositoryUpdatedEpochSeconds(packageUrl, cwd) {
-    const parsedPackage = parseCatalogPackageIdentifier(packageUrl);
+function extractReadmeTitle(readmeContent) {
+    const normalized = readmeContent.replace(/^\uFEFF/, "");
+    const match = normalized.match(/^\s*#\s+(.+?)(?:\s+#*)?\s*$/m);
+    return match?.[1]?.trim() || null;
+}
+async function tryReadRepositoryName(cacheRepositoryPath) {
+    const readmeCandidates = ["README.md", "readme.md", "Readme.md", "README.MD"];
+    for (const readmePath of readmeCandidates) {
+        try {
+            const { stdout } = await execFileAsync("git", ["show", `HEAD:${readmePath}`], {
+                cwd: cacheRepositoryPath,
+                maxBuffer: 1024 * 1024,
+            });
+            const title = extractReadmeTitle(stdout);
+            if (title) {
+                return title;
+            }
+        }
+        catch {
+            // Spec requires fallback to package ID when README/name cannot be read.
+        }
+    }
+    return null;
+}
+async function readRepositoryMetadata(packageId, cwd) {
+    const parsedPackage = parseCatalogPackageIdentifier(packageId);
     try {
         const cacheRepositoryPath = await ensureCachedPackageRepositoryMirror(parsedPackage, cwd);
         const { stdout } = await execFileAsync("git", ["log", "--all", "-1", "--format=%ct"], {
@@ -123,9 +147,10 @@ async function readRepositoryUpdatedEpochSeconds(packageUrl, cwd) {
         });
         const updated = Number.parseInt(stdout.trim(), 10);
         if (!Number.isFinite(updated) || updated <= 0) {
-            throw new SpexCatalogBuildError(`Failed to read last update time for ${packageUrl}`);
+            throw new SpexCatalogBuildError(`Failed to read last update time for ${packageId}`);
         }
-        return updated;
+        const name = (await tryReadRepositoryName(cacheRepositoryPath)) ?? packageId;
+        return { name, updated };
     }
     catch (error) {
         if (error instanceof SpexCatalogBuildError) {
@@ -134,7 +159,7 @@ async function readRepositoryUpdatedEpochSeconds(packageUrl, cwd) {
         const typedError = error;
         const details = [typedError.stderr, typedError.stdout].filter(Boolean).join("\n").trim();
         const suffix = details ? ` ${details}` : "";
-        throw new SpexCatalogBuildError(`Failed to fetch catalog package metadata for ${packageUrl}.${suffix}`.trim());
+        throw new SpexCatalogBuildError(`Failed to fetch catalog package metadata for ${packageId}.${suffix}`.trim());
     }
 }
 export class CatalogBuildService {
@@ -161,7 +186,9 @@ export class CatalogBuildService {
         }
         const packages = parseCatalogPackages(specificationContent);
         for (const catalogPackage of packages) {
-            catalogPackage.updated = await readRepositoryUpdatedEpochSeconds(catalogPackage.url, cwd);
+            const metadata = await readRepositoryMetadata(catalogPackage.id, cwd);
+            catalogPackage.name = metadata.name;
+            catalogPackage.updated = metadata.updated;
         }
         this.listener.onCatalogSpecificationRead?.(specificationFilePath, packages.length);
         this.listener.onCatalogIndexWriting?.(indexFilePath);

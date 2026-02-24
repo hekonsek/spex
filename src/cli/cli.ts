@@ -308,8 +308,8 @@ catalogProgram
       onBuildFileCreated(path: string): void {
         console.log(chalk.dim(`Created ${path}`));
       },
-      onPackageAdded(packageUrl: string, buildFilePath: string): void {
-        console.log(chalk.green(`OK added ${packageUrl} to ${buildFilePath}`));
+      onPackageAdded(packageId: string, buildFilePath: string): void {
+        console.log(chalk.green(`OK added ${packageId} to ${buildFilePath}`));
       },
     });
 
@@ -333,8 +333,8 @@ catalogProgram
 
           console.log(chalk.dim(`Catalog: ${state.catalogIndexFilePath}`));
           console.log(chalk.dim(`Config: ${state.buildFilePath}`));
-          for (const [index, packageUrl] of state.availablePackages.entries()) {
-            console.log(`${chalk.cyan(`${index + 1}.`)} ${packageUrl}`);
+          for (const [index, packageId] of state.availablePackages.entries()) {
+            console.log(`${chalk.cyan(`${index + 1}.`)} ${packageId}`);
           }
 
           const answer = (await readline.question("Select package number (Enter to finish): ")).trim();
@@ -348,8 +348,8 @@ catalogProgram
           }
 
           const selectedIndex = Number.parseInt(answer, 10) - 1;
-          const selectedPackageUrl = state.availablePackages[selectedIndex];
-          if (!selectedPackageUrl) {
+          const selectedPackageId = state.availablePackages[selectedIndex];
+          if (!selectedPackageId) {
             console.error(chalk.red("ERROR Selection is out of range."));
             continue;
           }
@@ -357,7 +357,7 @@ catalogProgram
           state = await service.addPackage({
             projectCwd: process.cwd(),
             catalogIndexCwd: resolvePackageRootPath(),
-            packageUrl: selectedPackageUrl,
+            packageId: selectedPackageId,
           });
         }
       } finally {

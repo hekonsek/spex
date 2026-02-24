@@ -1,7 +1,10 @@
 packages:
-  - url: hekonsek/syllaibus
+  - id: hekonsek/syllaibus
+    name: "Syllaibus: Syllabus for AI"
     updated: 1771246436
-  - url: hekonsek/spex-terminal-script
+  - id: hekonsek/spex-terminal-script
+    name: MCP for terminal session scripts
     updated: 1771850772
-  - url: hekonsek/adr-node-cli
+  - id: hekonsek/adr-node-cli
+    name: ADR (Architecture Decision Record) collection for Node CLI
     updated: 1771246215

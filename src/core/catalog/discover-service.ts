@@ -14,7 +14,7 @@ export interface CatalogDiscoverServiceInput {
 export interface CatalogDiscoverAddPackageInput {
   projectCwd?: string;
   catalogIndexCwd?: string;
-  packageUrl: string;
+  packageId: string;
 }
 
 export interface CatalogDiscoverServiceResult {
@@ -28,7 +28,7 @@ export interface CatalogDiscoverServiceResult {
 
 export interface CatalogDiscoverServiceListener {
   onBuildFileCreated?(path: string): void;
-  onPackageAdded?(packageUrl: string, buildFilePath: string): void;
+  onPackageAdded?(packageId: string, buildFilePath: string): void;
 }
 
 export class SpexCatalogDiscoverError extends Error {
@@ -93,9 +93,9 @@ function parseCatalogIndexPackages(content: string): string[] {
   const packages: string[] = [];
   for (const item of packagesValue) {
     if (typeof item === "string") {
-      const url = item.trim();
-      if (url) {
-        packages.push(url);
+      const id = item.trim();
+      if (id) {
+        packages.push(id);
       }
 
       continue;
@@ -104,16 +104,16 @@ function parseCatalogIndexPackages(content: string): string[] {
     const record = asRecord(item);
     if (!record) {
       throw new SpexCatalogDiscoverError(
-        "Catalog index packages list must contain string values or objects with url.",
+        "Catalog index packages list must contain string values or objects with id.",
       );
     }
 
-    const urlValue = record["url"];
-    if (typeof urlValue !== "string" || !urlValue.trim()) {
-      throw new SpexCatalogDiscoverError("Catalog index package object must contain a non-empty url.");
+    const idValue = record["id"];
+    if (typeof idValue !== "string" || !idValue.trim()) {
+      throw new SpexCatalogDiscoverError("Catalog index package object must contain a non-empty id.");
     }
 
-    packages.push(urlValue.trim());
+    packages.push(idValue.trim());
   }
 
   return uniqueStrings(packages);
@@ -151,7 +151,7 @@ export class CatalogDiscoverService {
     const catalogIndexContent = await this.readCatalogIndexFile(catalogIndexFilePath);
     const catalogPackages = parseCatalogIndexPackages(catalogIndexContent);
     const importedPackageSet = new Set(buildFileState.packages);
-    const availablePackages = catalogPackages.filter((packageUrl) => !importedPackageSet.has(packageUrl));
+    const availablePackages = catalogPackages.filter((packageId) => !importedPackageSet.has(packageId));
 
     return {
       projectCwd,
@@ -166,18 +166,18 @@ export class CatalogDiscoverService {
   async addPackage(input: CatalogDiscoverAddPackageInput): Promise<CatalogDiscoverServiceResult> {
     const projectCwd = input.projectCwd ?? process.cwd();
     const catalogIndexCwd = input.catalogIndexCwd;
-    const packageUrl = input.packageUrl.trim();
-    if (!packageUrl) {
-      throw new SpexCatalogDiscoverError("Package URL must not be empty.");
+    const packageId = input.packageId.trim();
+    if (!packageId) {
+      throw new SpexCatalogDiscoverError("Package ID must not be empty.");
     }
 
     const buildFileState = await this.readOrCreateBuildFile(projectCwd);
-    if (!buildFileState.packages.includes(packageUrl)) {
-      buildFileState.packages.push(packageUrl);
+    if (!buildFileState.packages.includes(packageId)) {
+      buildFileState.packages.push(packageId);
       buildFileState.root["packages"] = buildFileState.packages;
       const yaml = stringifyYaml(buildFileState.root);
       await writeFile(buildFileState.path, yaml, "utf8");
-      this.listener.onPackageAdded?.(packageUrl, buildFileState.path);
+      this.listener.onPackageAdded?.(packageId, buildFileState.path);
     }
 
     return this.run(catalogIndexCwd ? { projectCwd, catalogIndexCwd } : { projectCwd });
