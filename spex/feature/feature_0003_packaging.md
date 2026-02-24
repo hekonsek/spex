@@ -43,3 +43,5 @@ Should be imported into a following structure:
 ```
 
 Please note how only contents of `spex` directory in package repository is imported into `.spex/imports` in local project. 
+
+It is also possible to configure ignore list of the files that should not be copied during import process (in `spex.yml` file).
