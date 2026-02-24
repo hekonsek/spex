@@ -5,6 +5,7 @@ import ora from "ora";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BuildService } from "../core/build/build-service.js";
+import { CatalogBuildService, SpexCatalogBuildError, } from "../core/catalog/build-service.js";
 import { SpexValidationError, ValidateService, } from "../core/validate/validate-service.js";
 import { VersionService, readPackageVersion } from "../core/version/version-service.js";
 function isInteractive() {
@@ -191,6 +192,69 @@ program
             for (const issue of error.issues) {
                 console.error(chalk.red(`ERROR ${issue}`));
             }
+        }
+        else {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(chalk.red(`ERROR ${message}`));
+        }
+        process.exitCode = 1;
+    }
+    finally {
+        dispose();
+    }
+});
+program
+    .command("catalog")
+    .description("Work with Spex catalogs")
+    .command("build")
+    .description("Build catalog index from spex-catalog.yml")
+    .action(async () => {
+    const { spinner, dispose } = startInterruptibleSpinner("Building catalog index");
+    const service = new CatalogBuildService({
+        onCatalogBuildStarted(cwd) {
+            if (!spinner) {
+                console.log(chalk.dim(`Building catalog index in ${cwd}`));
+            }
+        },
+        onCatalogSpecificationReading(path) {
+            if (spinner) {
+                spinner.text = "Reading spex-catalog.yml";
+                return;
+            }
+            console.log(chalk.dim(`Reading ${path}`));
+        },
+        onCatalogSpecificationRead(path, packageCount) {
+            if (!spinner) {
+                console.log(chalk.dim(`Loaded ${packageCount} package(s) from ${path}`));
+            }
+        },
+        onCatalogIndexWriting(path) {
+            if (spinner) {
+                spinner.text = "Writing spex-catalog-index.yml";
+                return;
+            }
+            console.log(chalk.dim(`Writing ${path}`));
+        },
+        onCatalogIndexWritten(path) {
+            if (!spinner) {
+                console.log(chalk.dim(`Wrote ${path}`));
+            }
+        },
+        onCatalogBuildFinished(result) {
+            const message = `OK catalog index built (${result.packages.length} package(s))`;
+            spinner?.succeed(chalk.green(message));
+            if (!spinner) {
+                console.log(chalk.green(message));
+            }
+        },
+    });
+    try {
+        await service.run({ cwd: process.cwd() });
+    }
+    catch (error) {
+        spinner?.fail("Catalog build failed");
+        if (error instanceof SpexCatalogBuildError) {
+            console.error(chalk.red(`ERROR ${error.message}`));
         }
         else {
             const message = error instanceof Error ? error.message : String(error);

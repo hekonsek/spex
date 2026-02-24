@@ -1,0 +1,4 @@
+packages:
+  - hekonsek/syllaibus
+  - hekonsek/spex-terminal-script
+  - hekonsek/adr-node-cli
