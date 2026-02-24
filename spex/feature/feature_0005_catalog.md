@@ -20,6 +20,13 @@ Catalog Index format is as follows:
 
 ```yml
 packages:
-    - url: hekonsek/bar
-    - updated: 1771945683 # Epoch indicating last Git repository update
+    - id: hekonsek/bar
+    - name: Human-friendly name
+    - updated: 1771945683 
 ```
+
+`url`: ID of the package (in package URL format).
+
+`name`: Human-friendly name of the project. Read from `#` section of package `README.md` file. Defaults to ID if name cannot be read from README. 
+
+`updated`: Epoch indicating last Git repository update
