@@ -1,4 +1,7 @@
 packages:
   - url: hekonsek/syllaibus
+    updated: 1771246436
   - url: hekonsek/spex-terminal-script
+    updated: 1771850772
   - url: hekonsek/adr-node-cli
+    updated: 1771246215
