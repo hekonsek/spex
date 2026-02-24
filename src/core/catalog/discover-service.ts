@@ -24,6 +24,8 @@ export interface CatalogDiscoverServiceResult {
   importedPackages: string[];
   catalogPackages: string[];
   availablePackages: string[];
+  catalogPackageEntries: CatalogDiscoverPackageEntry[];
+  availablePackageEntries: CatalogDiscoverPackageEntry[];
 }
 
 export interface CatalogDiscoverServiceListener {
@@ -36,6 +38,11 @@ export class SpexCatalogDiscoverError extends Error {
     super(message);
     this.name = "SpexCatalogDiscoverError";
   }
+}
+
+export interface CatalogDiscoverPackageEntry {
+  id: string;
+  name: string;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -83,19 +90,25 @@ function parseBuildFilePackages(content: string): string[] {
   return uniqueStrings(parseStringList(root["packages"]));
 }
 
-function parseCatalogIndexPackages(content: string): string[] {
+function parseCatalogIndexPackages(content: string): CatalogDiscoverPackageEntry[] {
   const root = parseYamlObject(content);
   const packagesValue = root["packages"];
   if (!Array.isArray(packagesValue)) {
     throw new SpexCatalogDiscoverError("Catalog index must contain a packages list.");
   }
 
-  const packages: string[] = [];
+  const packages: CatalogDiscoverPackageEntry[] = [];
+  const seen = new Set<string>();
   for (const item of packagesValue) {
     if (typeof item === "string") {
       const id = item.trim();
       if (id) {
-        packages.push(id);
+        if (seen.has(id)) {
+          continue;
+        }
+
+        seen.add(id);
+        packages.push({ id, name: id });
       }
 
       continue;
@@ -113,10 +126,18 @@ function parseCatalogIndexPackages(content: string): string[] {
       throw new SpexCatalogDiscoverError("Catalog index package object must contain a non-empty id.");
     }
 
-    packages.push(idValue.trim());
+    const id = idValue.trim();
+    if (seen.has(id)) {
+      continue;
+    }
+
+    seen.add(id);
+    const nameValue = record["name"];
+    const name = typeof nameValue === "string" && nameValue.trim() ? nameValue.trim() : id;
+    packages.push({ id, name });
   }
 
-  return uniqueStrings(packages);
+  return packages;
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -149,9 +170,13 @@ export class CatalogDiscoverService {
 
     const buildFileState = await this.readOrCreateBuildFile(projectCwd);
     const catalogIndexContent = await this.readCatalogIndexFile(catalogIndexFilePath);
-    const catalogPackages = parseCatalogIndexPackages(catalogIndexContent);
+    const catalogPackageEntries = parseCatalogIndexPackages(catalogIndexContent);
+    const catalogPackages = catalogPackageEntries.map((catalogPackage) => catalogPackage.id);
     const importedPackageSet = new Set(buildFileState.packages);
-    const availablePackages = catalogPackages.filter((packageId) => !importedPackageSet.has(packageId));
+    const availablePackageEntries = catalogPackageEntries.filter(
+      (catalogPackage) => !importedPackageSet.has(catalogPackage.id),
+    );
+    const availablePackages = availablePackageEntries.map((catalogPackage) => catalogPackage.id);
 
     return {
       projectCwd,
@@ -160,6 +185,8 @@ export class CatalogDiscoverService {
       importedPackages: buildFileState.packages,
       catalogPackages,
       availablePackages,
+      catalogPackageEntries,
+      availablePackageEntries,
     };
   }
 

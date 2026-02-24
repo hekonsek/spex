@@ -296,8 +296,8 @@ catalogProgram
                 }
                 console.log(chalk.dim(`Catalog: ${state.catalogIndexFilePath}`));
                 console.log(chalk.dim(`Config: ${state.buildFilePath}`));
-                for (const [index, packageId] of state.availablePackages.entries()) {
-                    console.log(`${chalk.cyan(`${index + 1}.`)} ${packageId}`);
+                for (const [index, catalogPackage] of state.availablePackageEntries.entries()) {
+                    console.log(`${chalk.cyan(`${index + 1}.`)} ${catalogPackage.name} ${chalk.gray(`(${catalogPackage.id})`)}`);
                 }
                 const answer = (await readline.question("Select package number (Enter to finish): ")).trim();
                 if (!answer) {
@@ -308,15 +308,15 @@ catalogProgram
                     continue;
                 }
                 const selectedIndex = Number.parseInt(answer, 10) - 1;
-                const selectedPackageId = state.availablePackages[selectedIndex];
-                if (!selectedPackageId) {
+                const selectedPackage = state.availablePackageEntries[selectedIndex];
+                if (!selectedPackage) {
                     console.error(chalk.red("ERROR Selection is out of range."));
                     continue;
                 }
                 state = await service.addPackage({
                     projectCwd: process.cwd(),
                     catalogIndexCwd: resolvePackageRootPath(),
-                    packageId: selectedPackageId,
+                    packageId: selectedPackage.id,
                 });
             }
         }
