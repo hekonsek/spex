@@ -3,9 +3,11 @@ import chalk from "chalk";
 import { Command } from "commander";
 import ora from "ora";
 import { dirname, resolve } from "node:path";
+import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { BuildService } from "../core/build/build-service.js";
 import { CatalogBuildService, SpexCatalogBuildError, } from "../core/catalog/build-service.js";
+import { CatalogDiscoverService, SpexCatalogDiscoverError, } from "../core/catalog/discover-service.js";
 import { SpexValidationError, ValidateService, } from "../core/validate/validate-service.js";
 import { VersionService, readPackageVersion } from "../core/version/version-service.js";
 function isInteractive() {
@@ -203,9 +205,8 @@ program
         dispose();
     }
 });
-program
-    .command("catalog")
-    .description("Work with Spex catalogs")
+const catalogProgram = program.command("catalog").description("Work with Spex catalogs");
+catalogProgram
     .command("build")
     .description("Build catalog index from spex-catalog.yml")
     .action(async () => {
@@ -264,6 +265,74 @@ program
     }
     finally {
         dispose();
+    }
+});
+catalogProgram
+    .command("discover")
+    .description("Discover and add catalog packages to .spex/spex.yml")
+    .action(async () => {
+    const service = new CatalogDiscoverService({
+        onBuildFileCreated(path) {
+            console.log(chalk.dim(`Created ${path}`));
+        },
+        onPackageAdded(packageUrl, buildFilePath) {
+            console.log(chalk.green(`OK added ${packageUrl} to ${buildFilePath}`));
+        },
+    });
+    try {
+        let state = await service.run({
+            projectCwd: process.cwd(),
+            catalogIndexCwd: resolvePackageRootPath(),
+        });
+        const readline = createInterface({
+            input: process.stdin,
+            output: process.stdout,
+        });
+        try {
+            while (true) {
+                if (state.availablePackages.length === 0) {
+                    console.log(chalk.green("OK no catalog packages left to import"));
+                    break;
+                }
+                console.log(chalk.dim(`Catalog: ${state.catalogIndexFilePath}`));
+                console.log(chalk.dim(`Config: ${state.buildFilePath}`));
+                for (const [index, packageUrl] of state.availablePackages.entries()) {
+                    console.log(`${chalk.cyan(`${index + 1}.`)} ${packageUrl}`);
+                }
+                const answer = (await readline.question("Select package number (Enter to finish): ")).trim();
+                if (!answer) {
+                    break;
+                }
+                if (!/^\d+$/.test(answer)) {
+                    console.error(chalk.red("ERROR Invalid selection, enter a package number."));
+                    continue;
+                }
+                const selectedIndex = Number.parseInt(answer, 10) - 1;
+                const selectedPackageUrl = state.availablePackages[selectedIndex];
+                if (!selectedPackageUrl) {
+                    console.error(chalk.red("ERROR Selection is out of range."));
+                    continue;
+                }
+                state = await service.addPackage({
+                    projectCwd: process.cwd(),
+                    catalogIndexCwd: resolvePackageRootPath(),
+                    packageUrl: selectedPackageUrl,
+                });
+            }
+        }
+        finally {
+            readline.close();
+        }
+    }
+    catch (error) {
+        if (error instanceof SpexCatalogDiscoverError) {
+            console.error(chalk.red(`ERROR ${error.message}`));
+        }
+        else {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(chalk.red(`ERROR ${message}`));
+        }
+        process.exitCode = 1;
     }
 });
 await program.parseAsync(process.argv);
