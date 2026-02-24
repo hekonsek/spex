@@ -16,9 +16,10 @@ packages:
 
 Catalog index is an output YML file named `spex-catalog-index.yml` generated from catalog specification. Index contains list of packages enriched by metadata fetched during index build process. Index makes it easier for tooling to understand contents of catalog.
 
-For now catalog index format is not much different from catalog specification, but it will be extended with extra fields over time:
+Catalog Index format is as follows:
 
 ```yml
 packages:
     - url: hekonsek/bar
+    - updated: 1771945683 # Epoch indicating last Git repository update
 ```
