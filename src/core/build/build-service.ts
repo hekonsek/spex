@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { Minimatch } from "minimatch";
 import { parse as parseYaml } from "yaml";
+import { ensureCachedPackageRepositoryMirror } from "../git/package-cache.js";
 import {
   type SupportedSpexType,
   type ValidateServiceResult,
@@ -269,7 +270,12 @@ function parsePackageId(rawPackageId: string): ParsedPackageId {
   };
 }
 
-async function clonePackageToPath(cloneUrl: string, targetPath: string, cwd: string): Promise<void> {
+async function clonePackageToPath(
+  cloneUrl: string,
+  targetPath: string,
+  cwd: string,
+  sourceLabel = cloneUrl,
+): Promise<void> {
   const temporaryBasePath = await mkdtemp(resolve(tmpdir(), "spex-import-"));
   const temporaryClonePath = resolve(temporaryBasePath, "repo");
   const clonedSpexPath = resolve(temporaryClonePath, "spex");
@@ -294,10 +300,19 @@ async function clonePackageToPath(cloneUrl: string, targetPath: string, cwd: str
     const typedError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
     const details = [typedError.stderr, typedError.stdout].filter(Boolean).join("\n").trim();
     const suffix = details ? ` ${details}` : "";
-    throw new Error(`Failed to import package from ${cloneUrl}.${suffix}`.trim());
+    throw new Error(`Failed to import package from ${sourceLabel}.${suffix}`.trim());
   } finally {
     await rm(temporaryBasePath, { recursive: true, force: true });
   }
+}
+
+async function clonePackageToPathFromCache(
+  parsedPackage: ParsedPackageId,
+  targetPath: string,
+  cwd: string,
+): Promise<void> {
+  const cacheRepositoryPath = await ensureCachedPackageRepositoryMirror(parsedPackage, cwd);
+  await clonePackageToPath(cacheRepositoryPath, targetPath, cwd, parsedPackage.cloneUrl);
 }
 
 export class BuildService {
@@ -353,7 +368,7 @@ export class BuildService {
       );
 
       this.listener.onPackageImportStarted?.(parsedPackage.raw, parsedPackage.cloneUrl, targetPath);
-      await clonePackageToPath(parsedPackage.cloneUrl, targetPath, cwd);
+      await clonePackageToPathFromCache(parsedPackage, targetPath, cwd);
 
       const importedPackage: ImportedSpexPackage = {
         packageId: parsedPackage.raw,

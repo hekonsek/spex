@@ -1,9 +1,9 @@
 import { execFile } from "node:child_process";
-import { readFile, rm, writeFile, mkdtemp } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
-import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { ensureCachedPackageRepositoryMirror } from "../git/package-cache.js";
 export const catalogSpecificationFileName = "spex-catalog.yml";
 export const catalogIndexFileName = "spex-catalog-index.yml";
 const defaultPackageHost = "github.com";
@@ -97,21 +97,28 @@ function parseCatalogPackageIdentifier(rawPackageId) {
         }
     }
     name = name.replace(/\.git$/i, "");
+    if (!/^[A-Za-z0-9._-]+$/.test(host)) {
+        throw new SpexCatalogBuildError(`Unsupported package host format: ${rawPackageId}`);
+    }
+    if (!/^[A-Za-z0-9._-]+$/.test(namespace)) {
+        throw new SpexCatalogBuildError(`Unsupported package namespace format: ${rawPackageId}`);
+    }
+    if (!/^[A-Za-z0-9._-]+$/.test(name)) {
+        throw new SpexCatalogBuildError(`Unsupported package name format: ${rawPackageId}`);
+    }
     return {
+        host,
+        namespace,
+        name,
         cloneUrl: `https://${host}/${namespace}/${name}.git`,
     };
 }
 async function readRepositoryUpdatedEpochSeconds(packageUrl, cwd) {
-    const { cloneUrl } = parseCatalogPackageIdentifier(packageUrl);
-    const temporaryBasePath = await mkdtemp(resolve(tmpdir(), "spex-catalog-build-"));
-    const temporaryClonePath = resolve(temporaryBasePath, "repo");
+    const parsedPackage = parseCatalogPackageIdentifier(packageUrl);
     try {
-        await execFileAsync("git", ["clone", "--depth", "1", "--filter=blob:none", "--quiet", cloneUrl, temporaryClonePath], {
-            cwd,
-            maxBuffer: 10 * 1024 * 1024,
-        });
-        const { stdout } = await execFileAsync("git", ["log", "-1", "--format=%ct"], {
-            cwd: temporaryClonePath,
+        const cacheRepositoryPath = await ensureCachedPackageRepositoryMirror(parsedPackage, cwd);
+        const { stdout } = await execFileAsync("git", ["log", "--all", "-1", "--format=%ct"], {
+            cwd: cacheRepositoryPath,
             maxBuffer: 1024 * 1024,
         });
         const updated = Number.parseInt(stdout.trim(), 10);
@@ -128,9 +135,6 @@ async function readRepositoryUpdatedEpochSeconds(packageUrl, cwd) {
         const details = [typedError.stderr, typedError.stdout].filter(Boolean).join("\n").trim();
         const suffix = details ? ` ${details}` : "";
         throw new SpexCatalogBuildError(`Failed to fetch catalog package metadata for ${packageUrl}.${suffix}`.trim());
-    }
-    finally {
-        await rm(temporaryBasePath, { recursive: true, force: true });
     }
 }
 export class CatalogBuildService {

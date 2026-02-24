@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { Minimatch } from "minimatch";
 import { parse as parseYaml } from "yaml";
+import { ensureCachedPackageRepositoryMirror } from "../git/package-cache.js";
 import { ValidateService, } from "../validate/validate-service.js";
 const execFileAsync = promisify(execFile);
 const defaultPackageHost = "github.com";
@@ -175,7 +176,7 @@ function parsePackageId(rawPackageId) {
         cloneUrl: `https://${host}/${namespace}/${name}.git`,
     };
 }
-async function clonePackageToPath(cloneUrl, targetPath, cwd) {
+async function clonePackageToPath(cloneUrl, targetPath, cwd, sourceLabel = cloneUrl) {
     const temporaryBasePath = await mkdtemp(resolve(tmpdir(), "spex-import-"));
     const temporaryClonePath = resolve(temporaryBasePath, "repo");
     const clonedSpexPath = resolve(temporaryClonePath, "spex");
@@ -197,11 +198,15 @@ async function clonePackageToPath(cloneUrl, targetPath, cwd) {
         const typedError = error;
         const details = [typedError.stderr, typedError.stdout].filter(Boolean).join("\n").trim();
         const suffix = details ? ` ${details}` : "";
-        throw new Error(`Failed to import package from ${cloneUrl}.${suffix}`.trim());
+        throw new Error(`Failed to import package from ${sourceLabel}.${suffix}`.trim());
     }
     finally {
         await rm(temporaryBasePath, { recursive: true, force: true });
     }
+}
+async function clonePackageToPathFromCache(parsedPackage, targetPath, cwd) {
+    const cacheRepositoryPath = await ensureCachedPackageRepositoryMirror(parsedPackage, cwd);
+    await clonePackageToPath(cacheRepositoryPath, targetPath, cwd, parsedPackage.cloneUrl);
 }
 export class BuildService {
     listener;
@@ -242,7 +247,7 @@ export class BuildService {
             const parsedPackage = parsePackageId(rawPackageId);
             const targetPath = resolve(cwd, ".spex", "imports", parsedPackage.host, parsedPackage.namespace, parsedPackage.name);
             this.listener.onPackageImportStarted?.(parsedPackage.raw, parsedPackage.cloneUrl, targetPath);
-            await clonePackageToPath(parsedPackage.cloneUrl, targetPath, cwd);
+            await clonePackageToPathFromCache(parsedPackage, targetPath, cwd);
             const importedPackage = {
                 packageId: parsedPackage.raw,
                 sourceUrl: parsedPackage.cloneUrl,
