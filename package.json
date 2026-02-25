@@ -11,6 +11,7 @@
     "build": "tsc -p tsconfig.json && chmod +x dist/cli/cli.js",
     "check": "tsc --noEmit",
     "start": "node dist/cli/cli.js",
+    "dev": "npm run build && npm run start",
     "release": "npm version minor && git push --follow-tags",
     "install-latest": "npm install -g https://github.com/hekonsek/spex/archive/refs/tags/v${npm_package_version}.tar.gz"
   },
