@@ -4,6 +4,9 @@ import type {
   SupportedSpexType,
   ValidateServiceResult,
   ValidatedType,
+  ValidationService,
+  ValidationServiceInput,
+  ValidationServiceListener,
 } from "../../ports/build/validation.service.js";
 
 export type {
@@ -13,16 +16,6 @@ export type {
 } from "../../ports/build/validation.service.js";
 
 export const supportedSpexTypes = ["adr", "instruction", "dataformat", "feature"] as const;
-
-export interface ValidateServiceInput {
-  cwd?: string;
-}
-
-export interface ValidateServiceListener {
-  onValidationStarted(cwd: string): void;
-  onTypeDirectoryValidated(type: SupportedSpexType, markdownFileCount: number): void;
-  onValidationPassed(result: ValidateServiceResult): void;
-}
 
 export class SpexValidationError extends Error {
   constructor(public readonly issues: string[]) {
@@ -39,20 +32,21 @@ async function directoryExists(path: string): Promise<boolean> {
     if (code === "ENOENT") {
       return false;
     }
+
     throw error;
   }
 }
 
-export class ValidateService {
-  constructor(private readonly listener: ValidateServiceListener) {}
+export class DefaultValidationService implements ValidationService {
+  constructor(private readonly listener: ValidationServiceListener = {}) {}
 
-  async run(input: ValidateServiceInput = {}): Promise<ValidateServiceResult> {
+  async run(input: ValidationServiceInput = {}): Promise<ValidateServiceResult> {
     const cwd = input.cwd ?? process.cwd();
     const spexPath = resolve(cwd, "spex");
     const issues: string[] = [];
     const validatedTypes: ValidatedType[] = [];
 
-    this.listener.onValidationStarted(cwd);
+    this.listener.onValidationStarted?.(cwd);
 
     if (!(await directoryExists(spexPath))) {
       issues.push(`Missing spex directory: ${spexPath}`);
@@ -81,7 +75,7 @@ export class ValidateService {
           (entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".md"),
         ).length;
 
-        this.listener.onTypeDirectoryValidated(type, markdownFileCount);
+        this.listener.onTypeDirectoryValidated?.(type, markdownFileCount);
 
         if (entries.length === 0) {
           issues.push(`The spex/${type} directory must not be empty.`);
@@ -107,7 +101,7 @@ export class ValidateService {
       validatedTypes,
     };
 
-    this.listener.onValidationPassed(result);
+    this.listener.onValidationPassed?.(result);
     return result;
   }
 }

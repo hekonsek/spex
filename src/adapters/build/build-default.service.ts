@@ -12,8 +12,9 @@ import type {
   BuildServiceResult,
   ImportedSpexPackage,
 } from "../../ports/build/build.service.js";
-import type { ValidationService } from "../../ports/build/validation.service.js";
-import { ensureCachedPackageRepositoryMirror } from "../git/package-cache.js";
+import type { ValidationServiceListener } from "../../ports/build/validation.service.js";
+import { ensureCachedPackageRepositoryMirror } from "../../core/git/package-cache.js";
+import { DefaultValidationService } from "./validation-default.service.js";
 
 const execFileAsync = promisify(execFile);
 const defaultPackageHost = "github.com";
@@ -286,13 +287,15 @@ async function clonePackageToPathFromCache(
   await clonePackageToPath(cacheRepositoryPath, targetPath, cwd, parsedPackage.cloneUrl);
 }
 
-export class BuildService implements BuildServicePort {
+export class DefaultBuildService implements BuildServicePort {
+
   constructor(
-    private readonly listener: BuildServiceListener,
-    private readonly validationService: ValidationService,
-  ) {}
+    private readonly listener: BuildServiceListener & ValidationServiceListener = {},
+  ) {
+  }
 
   async build(input: BuildServiceInput = {}): Promise<BuildServiceResult> {
+    const validationService = new DefaultValidationService(this.listener);
     const cwd = input.cwd ?? process.cwd();
     const buildFilePath = resolve(cwd, ".spex", "spex.yml");
     const agentsFilePath = resolve(cwd, "AGENTS.md");
@@ -300,7 +303,7 @@ export class BuildService implements BuildServicePort {
 
     this.listener.onBuildStarted?.(cwd);
 
-    await this.validationService.run({ cwd });
+    await validationService.run({ cwd });
 
     await writeFile(agentsFilePath, spexAgentsInstruction, "utf8");
     this.listener.onAgentsFileWritten?.(agentsFilePath);

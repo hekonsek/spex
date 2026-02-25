@@ -5,10 +5,10 @@ import ora from "ora";
 import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { BuildService } from "../adapters/build/build-service.js";
+import { DefaultBuildService } from "../adapters/build/build-default.service.js";
+import { DefaultValidationService, SpexValidationError, } from "../adapters/build/validation-default.service.js";
 import { CatalogBuildService, SpexCatalogBuildError, } from "../core/catalog/build-service.js";
 import { CatalogDiscoverService, SpexCatalogDiscoverError, } from "../core/catalog/discover-service.js";
-import { SpexValidationError, ValidateService, } from "../core/validate/validate-service.js";
 import { VersionService, readPackageVersion } from "../core/version/version-service.js";
 function isInteractive() {
     return Boolean(process.stdout.isTTY && process.stderr.isTTY && !process.env.CI);
@@ -71,7 +71,7 @@ program
     .description("Prepare current project to work with Spex")
     .action(async () => {
     const { spinner, dispose } = startInterruptibleSpinner("Preparing Spex project");
-    const service = new BuildService({
+    const service = new DefaultBuildService({
         onBuildStarted(cwd) {
             if (!spinner) {
                 console.log(chalk.dim(`Building Spex project in ${cwd}`));
@@ -163,7 +163,7 @@ program
     .description("Validate spex structure in current directory")
     .action(async () => {
     const { spinner, dispose } = startInterruptibleSpinner("Validating spex structure");
-    const service = new ValidateService({
+    const service = new DefaultValidationService({
         onValidationStarted(cwd) {
             if (!spinner) {
                 console.log(chalk.dim(`Checking ${cwd}`));
