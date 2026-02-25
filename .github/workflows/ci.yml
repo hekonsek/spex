@@ -17,8 +17,11 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install spex
-        run: npm install -g https://github.com/hekonsek/spex/archive/refs/tags/v0.10.0.tar.gz
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
 
       - name: Spex validate
-        run: spex validate
+        run: npm run start validate
