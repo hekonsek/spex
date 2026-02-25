@@ -27,5 +27,5 @@ export interface BuildServiceListener {
 }
 
 export interface BuildService {
-  run(input?: BuildServiceInput): Promise<BuildServiceResult>;
+  build(input?: BuildServiceInput): Promise<BuildServiceResult>;
 }

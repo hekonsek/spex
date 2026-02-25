@@ -214,7 +214,7 @@ export class BuildService {
         this.listener = listener;
         this.validationService = validationService;
     }
-    async run(input = {}) {
+    async build(input = {}) {
         const cwd = input.cwd ?? process.cwd();
         const buildFilePath = resolve(cwd, ".spex", "spex.yml");
         const agentsFilePath = resolve(cwd, "AGENTS.md");

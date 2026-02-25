@@ -38,7 +38,7 @@ export class BuildService implements BuildServicePort {
     this.coreBuildService = new CoreBuildService(listener, validationService);
   }
 
-  async run(input: BuildServiceInput = {}): Promise<BuildServiceResult> {
-    return this.coreBuildService.run(input);
+  async build(input: BuildServiceInput = {}): Promise<BuildServiceResult> {
+    return this.coreBuildService.build(input);
   }
 }

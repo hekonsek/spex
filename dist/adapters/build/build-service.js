@@ -22,7 +22,7 @@ export class BuildService {
         const validationService = new BuildValidationServiceAdapter(listener);
         this.coreBuildService = new CoreBuildService(listener, validationService);
     }
-    async run(input = {}) {
-        return this.coreBuildService.run(input);
+    async build(input = {}) {
+        return this.coreBuildService.build(input);
     }
 }

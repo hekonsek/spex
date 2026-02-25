@@ -292,7 +292,7 @@ export class BuildService implements BuildServicePort {
     private readonly validationService: ValidationService,
   ) {}
 
-  async run(input: BuildServiceInput = {}): Promise<BuildServiceResult> {
+  async build(input: BuildServiceInput = {}): Promise<BuildServiceResult> {
     const cwd = input.cwd ?? process.cwd();
     const buildFilePath = resolve(cwd, ".spex", "spex.yml");
     const agentsFilePath = resolve(cwd, "AGENTS.md");

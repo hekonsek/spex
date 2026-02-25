@@ -139,7 +139,7 @@ program
         },
     });
     try {
-        await service.run({ cwd: process.cwd() });
+        await service.build({ cwd: process.cwd() });
     }
     catch (error) {
         spinner?.fail("Build failed");
