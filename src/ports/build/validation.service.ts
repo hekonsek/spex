@@ -3,7 +3,6 @@ export type SupportedSpexType = "adr" | "instruction" | "dataformat" | "feature"
 export interface ValidatedType {
   type: SupportedSpexType;
   path: string;
-  markdownFileCount: number;
 }
 
 export interface ValidateServiceResult {
