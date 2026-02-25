@@ -60,7 +60,6 @@ export class ValidateService {
                 validatedTypes.push({
                     type,
                     path: typePath,
-                    markdownFileCount,
                 });
             }
         }
