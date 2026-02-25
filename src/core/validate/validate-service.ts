@@ -1,22 +1,21 @@
 import { readdir, stat } from "node:fs/promises";
 import { resolve } from "node:path";
+import type {
+  SupportedSpexType,
+  ValidateServiceResult,
+  ValidatedType,
+} from "../../ports/build/validation.service.js";
+
+export type {
+  SupportedSpexType,
+  ValidateServiceResult,
+  ValidatedType,
+} from "../../ports/build/validation.service.js";
 
 export const supportedSpexTypes = ["adr", "instruction", "dataformat", "feature"] as const;
-export type SupportedSpexType = (typeof supportedSpexTypes)[number];
 
 export interface ValidateServiceInput {
   cwd?: string;
-}
-
-export interface ValidatedType {
-  type: SupportedSpexType;
-  path: string;
-  markdownFileCount: number;
-}
-
-export interface ValidateServiceResult {
-  spexPath: string;
-  validatedTypes: ValidatedType[];
 }
 
 export interface ValidateServiceListener {

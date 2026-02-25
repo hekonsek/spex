@@ -5,7 +5,7 @@ import ora from "ora";
 import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { BuildService } from "../core/build/build-service.js";
+import { BuildService } from "../adapters/build/build-service.js";
 import { CatalogBuildService, SpexCatalogBuildError, } from "../core/catalog/build-service.js";
 import { CatalogDiscoverService, SpexCatalogDiscoverError, } from "../core/catalog/discover-service.js";
 import { SpexValidationError, ValidateService, } from "../core/validate/validate-service.js";

@@ -5,7 +5,7 @@ import ora, { type Ora } from "ora";
 import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { BuildService } from "../core/build/build-service.js";
+import { BuildService } from "../adapters/build/build-service.js";
 import {
   CatalogBuildService,
   SpexCatalogBuildError,

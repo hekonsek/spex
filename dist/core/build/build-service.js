@@ -6,7 +6,6 @@ import { promisify } from "node:util";
 import { Minimatch } from "minimatch";
 import { parse as parseYaml } from "yaml";
 import { ensureCachedPackageRepositoryMirror } from "../git/package-cache.js";
-import { ValidateService, } from "../validate/validate-service.js";
 const execFileAsync = promisify(execFile);
 const defaultPackageHost = "github.com";
 const spexAgentsInstruction = `This project contains specifications of different types and instructions located in:
@@ -210,8 +209,10 @@ async function clonePackageToPathFromCache(parsedPackage, targetPath, cwd) {
 }
 export class BuildService {
     listener;
-    constructor(listener) {
+    validationService;
+    constructor(listener, validationService) {
         this.listener = listener;
+        this.validationService = validationService;
     }
     async run(input = {}) {
         const cwd = input.cwd ?? process.cwd();
@@ -219,19 +220,13 @@ export class BuildService {
         const agentsFilePath = resolve(cwd, "AGENTS.md");
         const importedPackages = [];
         this.listener.onBuildStarted?.(cwd);
-        const validateService = new ValidateService({
-            onValidationStarted: (validationCwd) => this.listener.onValidationStarted?.(validationCwd),
-            onTypeDirectoryValidated: (type, markdownFileCount) => this.listener.onTypeDirectoryValidated?.(type, markdownFileCount),
-            onValidationPassed: (result) => this.listener.onValidationPassed?.(result),
-        });
-        const validationResult = await validateService.run({ cwd });
+        await this.validationService.run({ cwd });
         await writeFile(agentsFilePath, spexAgentsInstruction, "utf8");
         this.listener.onAgentsFileWritten?.(agentsFilePath);
         if (!(await pathExists(buildFilePath))) {
             this.listener.onBuildFileMissing?.(buildFilePath);
             const result = {
                 cwd,
-                validationResult,
                 agentsFilePath,
                 buildFilePath,
                 importedPackages,
@@ -258,7 +253,6 @@ export class BuildService {
         }
         const result = {
             cwd,
-            validationResult,
             agentsFilePath,
             buildFilePath,
             importedPackages,

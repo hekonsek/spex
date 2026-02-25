@@ -5,12 +5,15 @@ import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { Minimatch } from "minimatch";
 import { parse as parseYaml } from "yaml";
+import type {
+  BuildService as BuildServicePort,
+  BuildServiceInput,
+  BuildServiceListener,
+  BuildServiceResult,
+  ImportedSpexPackage,
+} from "../../ports/build/build.service.js";
+import type { ValidationService } from "../../ports/build/validation.service.js";
 import { ensureCachedPackageRepositoryMirror } from "../git/package-cache.js";
-import {
-  type SupportedSpexType,
-  type ValidateServiceResult,
-  ValidateService,
-} from "../validate/validate-service.js";
 
 const execFileAsync = promisify(execFile);
 const defaultPackageHost = "github.com";
@@ -32,38 +35,6 @@ interface ParsedPackageId {
   namespace: string;
   name: string;
   cloneUrl: string;
-}
-
-export interface BuildServiceInput {
-  cwd?: string;
-}
-
-export interface ImportedSpexPackage {
-  packageId: string;
-  sourceUrl: string;
-  targetPath: string;
-}
-
-export interface BuildServiceResult {
-  cwd: string;
-  validationResult: ValidateServiceResult;
-  agentsFilePath: string;
-  buildFilePath: string;
-  importedPackages: ImportedSpexPackage[];
-}
-
-export interface BuildServiceListener {
-  onBuildStarted?(cwd: string): void;
-  onValidationStarted?(cwd: string): void;
-  onTypeDirectoryValidated?(type: SupportedSpexType, markdownFileCount: number): void;
-  onValidationPassed?(result: ValidateServiceResult): void;
-  onAgentsFileWritten?(path: string): void;
-  onBuildFileDetected?(path: string): void;
-  onBuildFileMissing?(path: string): void;
-  onBuildPackagesResolved?(packageIds: string[]): void;
-  onPackageImportStarted?(packageId: string, sourceUrl: string, targetPath: string): void;
-  onPackageImported?(importedPackage: ImportedSpexPackage): void;
-  onBuildFinished?(result: BuildServiceResult): void;
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -315,8 +286,11 @@ async function clonePackageToPathFromCache(
   await clonePackageToPath(cacheRepositoryPath, targetPath, cwd, parsedPackage.cloneUrl);
 }
 
-export class BuildService {
-  constructor(private readonly listener: BuildServiceListener) {}
+export class BuildService implements BuildServicePort {
+  constructor(
+    private readonly listener: BuildServiceListener,
+    private readonly validationService: ValidationService,
+  ) {}
 
   async run(input: BuildServiceInput = {}): Promise<BuildServiceResult> {
     const cwd = input.cwd ?? process.cwd();
@@ -326,14 +300,7 @@ export class BuildService {
 
     this.listener.onBuildStarted?.(cwd);
 
-    const validateService = new ValidateService({
-      onValidationStarted: (validationCwd: string): void =>
-        this.listener.onValidationStarted?.(validationCwd),
-      onTypeDirectoryValidated: (type, markdownFileCount): void =>
-        this.listener.onTypeDirectoryValidated?.(type, markdownFileCount),
-      onValidationPassed: (result): void => this.listener.onValidationPassed?.(result),
-    });
-    const validationResult = await validateService.run({ cwd });
+    await this.validationService.run({ cwd });
 
     await writeFile(agentsFilePath, spexAgentsInstruction, "utf8");
     this.listener.onAgentsFileWritten?.(agentsFilePath);
@@ -342,7 +309,6 @@ export class BuildService {
       this.listener.onBuildFileMissing?.(buildFilePath);
       const result: BuildServiceResult = {
         cwd,
-        validationResult,
         agentsFilePath,
         buildFilePath,
         importedPackages,
@@ -382,7 +348,6 @@ export class BuildService {
 
     const result: BuildServiceResult = {
       cwd,
-      validationResult,
       agentsFilePath,
       buildFilePath,
       importedPackages,

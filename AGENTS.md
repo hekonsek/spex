@@ -1,8 +1,8 @@
-This project contains specification pieces of different types located in:
+This project contains specifications of different types and instructions located in:
 - `spex/**/*.md`
 - `.spex/imports/**/*.md`
 
-Depending of the specification type it will be located in a relevant subdirectory like `adr`, `instruction`, `dataformat`, `feature`, etc.
+Depending of the instruction or specification type it will be located in a relevant subdirectory like `adr`, `instruction`, `dataformat`, `feature`, etc.
 
 Please take these specifications under consideration when working with project.
 
