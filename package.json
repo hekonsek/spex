@@ -1,7 +1,7 @@
 {
   "name": "spex",
   "version": "0.10.0",
-  "description": "AI-friendly project specifications",
+  "description": "AI-friendly projects specifications",
   "license": "MIT",
   "type": "module",
   "bin": {
