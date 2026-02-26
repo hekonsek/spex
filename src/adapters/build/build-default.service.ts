@@ -303,7 +303,7 @@ export class DefaultBuildService implements BuildServicePort {
 
     this.listener.onBuildStarted?.(cwd);
 
-    await validationService.validate({ cwd });
+    await validationService.validate({ path: cwd });
 
     await writeFile(agentsFilePath, spexAgentsInstruction, "utf8");
     this.listener.onAgentsFileWritten?.(agentsFilePath);

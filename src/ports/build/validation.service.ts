@@ -3,11 +3,11 @@ export interface ValidationService {
 }
 
 export interface ValidationOptions {
-  cwd?: string;
+  path?: string;
 }
 
 export interface ValidationServiceListener {
-  onValidationStarted?(cwd: string): void;
+  onValidationStarted?(path: string): void;
   onTypeDirectoryValidated?(type: SupportedSpexType, markdownFileCount: number): void;
   onValidationPassed?(result: ValidateServiceResult): void;
 }

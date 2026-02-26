@@ -220,7 +220,7 @@ export class DefaultBuildService {
         const agentsFilePath = resolve(cwd, "AGENTS.md");
         const importedPackages = [];
         this.listener.onBuildStarted?.(cwd);
-        await validationService.validate({ cwd });
+        await validationService.validate({ path: cwd });
         await writeFile(agentsFilePath, spexAgentsInstruction, "utf8");
         this.listener.onAgentsFileWritten?.(agentsFilePath);
         if (!(await pathExists(buildFilePath))) {

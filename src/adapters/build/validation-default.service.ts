@@ -40,13 +40,13 @@ async function directoryExists(path: string): Promise<boolean> {
 export class DefaultValidationService implements ValidationService {
   constructor(private readonly listener: ValidationServiceListener = {}) {}
 
-  async validate(input: ValidationOptions = {}): Promise<ValidateServiceResult> {
-    const cwd = input.cwd ?? process.cwd();
-    const spexPath = resolve(cwd, "spex");
+  async validate(validationOptions: ValidationOptions = {}): Promise<ValidateServiceResult> {
+    const path = validationOptions.path ?? process.cwd();
+    const spexPath = resolve(path, "spex");
     const issues: string[] = [];
     const validatedTypes: ValidatedType[] = [];
 
-    this.listener.onValidationStarted?.(cwd);
+    this.listener.onValidationStarted?.(path);
 
     if (!(await directoryExists(spexPath))) {
       issues.push(`Missing spex directory: ${spexPath}`);

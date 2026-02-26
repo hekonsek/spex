@@ -7,9 +7,9 @@ import { DefaultValidationService } from "../../../src/adapters/build/validation
 
 test("should pass validation", async () => {
   // Given
-  const cwd = await mkdtemp(resolve(tmpdir(), "spex-validation-"));
+  const path = await mkdtemp(resolve(tmpdir(), "spex-validation-"));
 
-  const spexPath = resolve(cwd, "spex");
+  const spexPath = resolve(path, "spex");
   const adrPath = resolve(spexPath, "adr");
 
   await mkdir(adrPath, { recursive: true });
@@ -18,7 +18,7 @@ test("should pass validation", async () => {
   const service = new DefaultValidationService();
   
   // When
-  const result = await service.validate({ cwd });
+  const result = await service.validate({ path });
 
   // Then
   assert.deepEqual(result, {

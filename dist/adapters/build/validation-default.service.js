@@ -26,12 +26,12 @@ export class DefaultValidationService {
     constructor(listener = {}) {
         this.listener = listener;
     }
-    async validate(input = {}) {
-        const cwd = input.cwd ?? process.cwd();
-        const spexPath = resolve(cwd, "spex");
+    async validate(validationOptions = {}) {
+        const path = validationOptions.path ?? process.cwd();
+        const spexPath = resolve(path, "spex");
         const issues = [];
         const validatedTypes = [];
-        this.listener.onValidationStarted?.(cwd);
+        this.listener.onValidationStarted?.(path);
         if (!(await directoryExists(spexPath))) {
             issues.push(`Missing spex directory: ${spexPath}`);
         }
