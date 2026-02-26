@@ -70,7 +70,6 @@ export class DefaultValidationService {
             spexPath,
             validatedTypes,
         };
-        this.listener.onValidationPassed?.(result);
         return result;
     }
 }

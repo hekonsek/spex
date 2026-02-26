@@ -9,7 +9,6 @@ export interface ValidationOptions {
 export interface ValidationServiceListener {
   onValidationStarted?(path: string): void;
   onTypeDirectoryValidated?(type: SupportedSpexType, markdownFileCount: number): void;
-  onValidationPassed?(result: ValidateServiceResult): void;
 }
 
 export type SupportedSpexType = "adr" | "instruction" | "dataformat" | "feature";

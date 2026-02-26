@@ -101,7 +101,6 @@ export class DefaultValidationService implements ValidationService {
       validatedTypes,
     };
 
-    this.listener.onValidationPassed?.(result);
     return result;
   }
 }

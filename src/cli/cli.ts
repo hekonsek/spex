@@ -110,11 +110,6 @@ program
 
         console.log(chalk.dim(`Validated spex/${type}: ${markdownFileCount} markdown file(s)`));
       },
-      onValidationPassed(): void {
-        if (spinner) {
-          spinner.text = "Writing AGENTS.md";
-        }
-      },
       onAgentsFileWritten(path: string): void {
         if (spinner) {
           spinner.text = "Checking .spex/spex.yml";
@@ -203,18 +198,16 @@ program
 
         console.log(chalk.dim(`Checked spex/${type}: ${markdownFileCount} markdown file(s)`));
       },
-      onValidationPassed(result): void {
-        const validatedTypeNames = result.validatedTypes.map(({ type }) => type).join(", ");
-        const message = `OK valid spex structure (${validatedTypeNames})`;
-        spinner?.succeed(chalk.green(message));
-        if (!spinner) {
-          console.log(chalk.green(message));
-        }
-      },
     });
 
     try {
-      await service.validate({ path: process.cwd() });
+      const result = await service.validate({ path: process.cwd() });
+      const validatedTypeNames = result.validatedTypes.map(({ type }) => type).join(", ");
+      const message = `OK valid spex structure (${validatedTypeNames})`;
+      spinner?.succeed(chalk.green(message));
+      if (!spinner) {
+        console.log(chalk.green(message));
+      }
     } catch (error: unknown) {
       spinner?.fail("Spex structure is invalid");
 
