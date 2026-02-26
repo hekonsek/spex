@@ -25,3 +25,6 @@ jobs:
 
       - name: Spex validate
         run: npm run start validate
+
+      - name: Spex test
+        run: npm test
