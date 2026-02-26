@@ -1,3 +1,13 @@
+export interface ValidationService {
+  run(input?: ValidationServiceInput): Promise<ValidateServiceResult>;
+}
+
+export interface ValidationServiceListener {
+  onValidationStarted?(cwd: string): void;
+  onTypeDirectoryValidated?(type: SupportedSpexType, markdownFileCount: number): void;
+  onValidationPassed?(result: ValidateServiceResult): void;
+}
+
 export type SupportedSpexType = "adr" | "instruction" | "dataformat" | "feature";
 
 export interface ValidatedType {
@@ -12,14 +22,4 @@ export interface ValidateServiceResult {
 
 export interface ValidationServiceInput {
   cwd?: string;
-}
-
-export interface ValidationServiceListener {
-  onValidationStarted?(cwd: string): void;
-  onTypeDirectoryValidated?(type: SupportedSpexType, markdownFileCount: number): void;
-  onValidationPassed?(result: ValidateServiceResult): void;
-}
-
-export interface ValidationService {
-  run(input?: ValidationServiceInput): Promise<ValidateServiceResult>;
 }
