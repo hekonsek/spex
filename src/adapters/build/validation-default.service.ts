@@ -40,7 +40,7 @@ async function directoryExists(path: string): Promise<boolean> {
 export class DefaultValidationService implements ValidationService {
   constructor(private readonly listener: ValidationServiceListener = {}) {}
 
-  async run(input: ValidationServiceInput = {}): Promise<ValidateServiceResult> {
+  async validate(input: ValidationServiceInput = {}): Promise<ValidateServiceResult> {
     const cwd = input.cwd ?? process.cwd();
     const spexPath = resolve(cwd, "spex");
     const issues: string[] = [];

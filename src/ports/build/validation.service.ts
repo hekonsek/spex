@@ -1,5 +1,5 @@
 export interface ValidationService {
-  run(input?: ValidationServiceInput): Promise<ValidateServiceResult>;
+  validate(input?: ValidationServiceInput): Promise<ValidateServiceResult>;
 }
 
 export interface ValidationServiceListener {

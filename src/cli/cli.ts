@@ -214,7 +214,7 @@ program
     });
 
     try {
-      await service.run({ cwd: process.cwd() });
+      await service.validate({ cwd: process.cwd() });
     } catch (error: unknown) {
       spinner?.fail("Spex structure is invalid");
 
