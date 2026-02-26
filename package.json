@@ -11,7 +11,7 @@
     "build": "tsc -p tsconfig.json && chmod +x dist/cli/cli.js",
     "check": "tsc --noEmit",
     "test:build": "tsc --outDir \"${TMPDIR:-/tmp}/spex-test-build\" --rootDir . --module NodeNext --moduleResolution NodeNext --target ES2022 --lib ES2022 --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --skipLibCheck $(find src test -name '*.ts' -print)",
-    "test": "npm run test:build && node --test \"${TMPDIR:-/tmp}/spex-test-build/test/**/*.test.js\"",
+    "test": "npm run test:build && node --test $(find \"${TMPDIR:-/tmp}/spex-test-build/test\" -name '*.test.js' -print)",
     "start": "node dist/cli/cli.js",
     "dev": "npm run build && npm run start",
     "release": "npm version minor && git push --follow-tags",
