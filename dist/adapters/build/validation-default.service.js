@@ -26,7 +26,7 @@ export class DefaultValidationService {
     constructor(listener = {}) {
         this.listener = listener;
     }
-    async run(input = {}) {
+    async validate(input = {}) {
         const cwd = input.cwd ?? process.cwd();
         const spexPath = resolve(cwd, "spex");
         const issues = [];

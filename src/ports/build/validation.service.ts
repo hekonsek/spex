@@ -1,5 +1,9 @@
 export interface ValidationService {
-  validate(input?: ValidationServiceInput): Promise<ValidateServiceResult>;
+  validate(options?: ValidationOptions): Promise<ValidateServiceResult>;
+}
+
+export interface ValidationOptions {
+  cwd?: string;
 }
 
 export interface ValidationServiceListener {
@@ -18,8 +22,4 @@ export interface ValidatedType {
 export interface ValidateServiceResult {
   spexPath: string;
   validatedTypes: ValidatedType[];
-}
-
-export interface ValidationServiceInput {
-  cwd?: string;
 }
