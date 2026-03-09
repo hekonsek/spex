@@ -2,9 +2,9 @@ packages:
   - id: hekonsek/syllaibus
     name: "Syllaibus: Syllabus for AI"
     updated: 1771246436
-  - id: hekonsek/spex-terminal-script
-    name: MCP for terminal session scripts
-    updated: 1771850772
+  - id: hekonsek/scriptz
+    name: "Scriptz: record your terminal sessions with script"
+    updated: 1773046328
   - id: hekonsek/adr-node-cli
     name: ADR (Architecture Decision Record) collection for Node CLI
     updated: 1771246215
