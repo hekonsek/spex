@@ -1,3 +1,4 @@
 packages:
-  - hekonsek/spex-terminal-script
+  - hekonsek/scriptz
+  - hekonsek/adr-node
   - hekonsek/adr-node-cli
