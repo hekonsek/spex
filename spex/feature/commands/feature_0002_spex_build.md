@@ -3,7 +3,6 @@
 Executing `spex build` prepares project to be ready to work with Spex.
 
 In particular it:
-- Runs validation of project structure (the same logic as `spex validate` command).
 - Adds `AGENTS.md` Spex instruction (If `AGENTS.md` file already exists, it is overridden).
 - Checks if `.spex/spex.yml` build file exists.
     - If yes then: 

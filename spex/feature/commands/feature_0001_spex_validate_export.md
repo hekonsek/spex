@@ -1,6 +1,6 @@
-# spex validate
+# spex validate export
 
-Executing `spex validate` command should validate that current directory is a valid Spex project.
+Executing `spex validate export` command should validate that current directory is a valid Spex package that can be exported.
 
 In particular the following is checked:
 - Current directory should contain `spex` subdirectory.
