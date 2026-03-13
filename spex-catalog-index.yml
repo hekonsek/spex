@@ -1,10 +1,13 @@
 packages:
+  - id: hekonsek/scriptz
+    name: "Scriptz: record your terminal sessions with script"
+    updated: 1773047221
   - id: hekonsek/syllaibus
     name: "Syllaibus: Syllabus for AI"
     updated: 1771246436
-  - id: hekonsek/scriptz
-    name: "Scriptz: record your terminal sessions with script"
-    updated: 1773046328
+  - id: hekonsek/adr-node
+    name: ADR (Architecture Decision Record) collection for Node
+    updated: 1773402360
   - id: hekonsek/adr-node-cli
     name: ADR (Architecture Decision Record) collection for Node CLI
     updated: 1771246215

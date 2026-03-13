@@ -1,4 +1,8 @@
 packages:
-  - hekonsek/syllaibus
+  # Tools
   - hekonsek/scriptz
+  
+  # ADRs
+  - hekonsek/syllaibus # ADR metadata
+  - hekonsek/adr-node
   - hekonsek/adr-node-cli
