@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
@@ -11,6 +11,7 @@ import type {
   BuildServiceListener,
   BuildServiceResult,
   ImportedSpexPackage,
+  RemovedSpexPackage,
 } from "../../ports/build/build.service.js";
 import type { ValidationServiceListener } from "../../ports/build/validation.service.js";
 import { ensureCachedPackageRepositoryMirror } from "../../core/git/package-cache.js";
@@ -36,6 +37,16 @@ interface ParsedPackageId {
   namespace: string;
   name: string;
   cloneUrl: string;
+}
+
+interface ImportedPackageDirectory {
+  packageId: string;
+  targetPath: string;
+}
+
+function isPathWithinOrEqual(parentPath: string, childPath: string): boolean {
+  const relativePath = relative(parentPath, childPath);
+  return relativePath === "" || (!relativePath.startsWith("..") && !relativePath.startsWith("../"));
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -287,6 +298,88 @@ async function clonePackageToPathFromCache(
   await clonePackageToPath(cacheRepositoryPath, targetPath, cwd, parsedPackage.cloneUrl);
 }
 
+async function listImportedPackageDirectories(importsRootPath: string): Promise<ImportedPackageDirectory[]> {
+  if (!(await pathExists(importsRootPath))) {
+    return [];
+  }
+
+  const importedPackages: ImportedPackageDirectory[] = [];
+  const hostEntries = await readdir(importsRootPath, { withFileTypes: true });
+
+  for (const hostEntry of hostEntries) {
+    if (!hostEntry.isDirectory()) {
+      continue;
+    }
+
+    const hostPath = resolve(importsRootPath, hostEntry.name);
+    const namespaceEntries = await readdir(hostPath, { withFileTypes: true });
+
+    for (const namespaceEntry of namespaceEntries) {
+      if (!namespaceEntry.isDirectory()) {
+        continue;
+      }
+
+      const namespacePath = resolve(hostPath, namespaceEntry.name);
+      const packageEntries = await readdir(namespacePath, { withFileTypes: true });
+
+      for (const packageEntry of packageEntries) {
+        if (!packageEntry.isDirectory()) {
+          continue;
+        }
+
+        importedPackages.push({
+          packageId: `${hostEntry.name}/${namespaceEntry.name}/${packageEntry.name}`,
+          targetPath: resolve(namespacePath, packageEntry.name),
+        });
+      }
+    }
+  }
+
+  return importedPackages;
+}
+
+async function removeEmptyDirectoryChain(path: string, stopPath: string): Promise<void> {
+  let currentPath = path;
+  const normalizedStopPath = resolve(stopPath);
+
+  while (isPathWithinOrEqual(normalizedStopPath, currentPath)) {
+    try {
+      await rmdir(currentPath);
+    } catch (error: unknown) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "ENOTEMPTY") {
+        return;
+      }
+
+      throw error;
+    }
+
+    if (currentPath === normalizedStopPath) {
+      return;
+    }
+
+    currentPath = dirname(currentPath);
+  }
+}
+
+async function findStaleImportedPackages(
+  importsRootPath: string,
+  expectedTargetPaths: ReadonlySet<string>,
+): Promise<RemovedSpexPackage[]> {
+  const importedDirectories = await listImportedPackageDirectories(importsRootPath);
+  return importedDirectories.filter(
+    ({ targetPath }) => !expectedTargetPaths.has(targetPath),
+  );
+}
+
+async function removeImportedPackage(
+  importsRootPath: string,
+  removedPackage: RemovedSpexPackage,
+): Promise<void> {
+  await rm(removedPackage.targetPath, { recursive: true, force: true });
+  await removeEmptyDirectoryChain(dirname(removedPackage.targetPath), importsRootPath);
+}
+
 export class DefaultBuildService implements BuildServicePort {
 
   constructor(
@@ -299,7 +392,9 @@ export class DefaultBuildService implements BuildServicePort {
     const cwd = input.cwd ?? process.cwd();
     const buildFilePath = resolve(cwd, ".spex", "spex.yml");
     const agentsFilePath = resolve(cwd, "AGENTS.md");
+    const importsRootPath = resolve(cwd, ".spex", "imports");
     const importedPackages: ImportedSpexPackage[] = [];
+    const removedPackages: RemovedSpexPackage[] = [];
 
     this.listener.onBuildStarted?.(cwd);
 
@@ -315,6 +410,7 @@ export class DefaultBuildService implements BuildServicePort {
         agentsFilePath,
         buildFilePath,
         importedPackages,
+        removedPackages,
       };
       this.listener.onBuildFinished?.(result);
       return result;
@@ -324,6 +420,7 @@ export class DefaultBuildService implements BuildServicePort {
     const buildFileContent = await readFile(buildFilePath, "utf8");
     const packageIds = parseBuildFilePackages(buildFileContent);
     this.listener.onBuildPackagesResolved?.(packageIds);
+    const expectedTargetPaths = new Set<string>();
 
     for (const rawPackageId of packageIds) {
       const parsedPackage = parsePackageId(rawPackageId);
@@ -335,6 +432,7 @@ export class DefaultBuildService implements BuildServicePort {
         parsedPackage.namespace,
         parsedPackage.name,
       );
+      expectedTargetPaths.add(targetPath);
 
       this.listener.onPackageImportStarted?.(parsedPackage.raw, parsedPackage.cloneUrl, targetPath);
       await clonePackageToPathFromCache(parsedPackage, targetPath, cwd);
@@ -349,11 +447,20 @@ export class DefaultBuildService implements BuildServicePort {
       this.listener.onPackageImported?.(importedPackage);
     }
 
+    const stalePackages = await findStaleImportedPackages(importsRootPath, expectedTargetPaths);
+    for (const stalePackage of stalePackages) {
+      this.listener.onStalePackageRemovalStarted?.(stalePackage);
+      await removeImportedPackage(importsRootPath, stalePackage);
+      removedPackages.push(stalePackage);
+      this.listener.onStalePackageRemoved?.(stalePackage);
+    }
+
     const result: BuildServiceResult = {
       cwd,
       agentsFilePath,
       buildFilePath,
       importedPackages,
+      removedPackages,
     };
     this.listener.onBuildFinished?.(result);
     return result;

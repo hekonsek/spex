@@ -149,8 +149,23 @@ program
           console.log(chalk.green(`OK imported ${importedPackage.packageId}`));
         }
       },
+      onStalePackageRemovalStarted(removedPackage): void {
+        if (spinner) {
+          spinner.text = `Removing ${removedPackage.packageId}`;
+          return;
+        }
+
+        console.log(chalk.dim(`Removing stale import ${removedPackage.packageId} from ${removedPackage.targetPath}`));
+      },
+      onStalePackageRemoved(removedPackage): void {
+        if (!spinner) {
+          console.log(chalk.green(`OK removed ${removedPackage.packageId}`));
+        }
+      },
       onBuildFinished(result): void {
-        const summary = `OK build completed (${result.importedPackages.length} package(s) imported)`;
+        const summary =
+          `OK build completed (${result.importedPackages.length} package(s) imported, ` +
+          `${result.removedPackages.length} stale package(s) removed)`;
         spinner?.succeed(chalk.green(summary));
         if (!spinner) {
           console.log(chalk.green(summary));
