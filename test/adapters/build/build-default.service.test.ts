@@ -147,6 +147,23 @@ test("build writes AGENTS.md and skips import cleanup when build file is missing
   }
 });
 
+test("build does not validate the local spex directory before writing AGENTS.md", async () => {
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-build-without-spex-"));
+
+  try {
+    const service = new DefaultBuildService();
+
+    const result = await service.build({ cwd: projectPath });
+    const agentsContent = await readFile(resolve(projectPath, "AGENTS.md"), "utf8");
+
+    assert.match(agentsContent, /This project contains specifications of different types/);
+    assert.equal(result.importedPackages.length, 0);
+    assert.equal(result.removedPackages.length, 0);
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
 test("build refreshes imported packages and removes stale package directories", { concurrency: false }, async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-build-project-"));
   const homePath = await mkdtemp(resolve(tmpdir(), "spex-build-home-"));

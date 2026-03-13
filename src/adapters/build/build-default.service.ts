@@ -13,9 +13,7 @@ import type {
   ImportedSpexPackage,
   RemovedSpexPackage,
 } from "../../ports/build/build.service.js";
-import type { ValidationServiceListener } from "../../ports/build/validation.service.js";
 import { ensureCachedPackageRepositoryMirror } from "../../core/git/package-cache.js";
-import { DefaultValidationService } from "./validation-default.service.js";
 
 const execFileAsync = promisify(execFile);
 const defaultPackageHost = "github.com";
@@ -381,14 +379,9 @@ async function removeImportedPackage(
 }
 
 export class DefaultBuildService implements BuildServicePort {
-
-  constructor(
-    private readonly listener: BuildServiceListener & ValidationServiceListener = {},
-  ) {
-  }
+  constructor(private readonly listener: BuildServiceListener = {}) {}
 
   async build(input: BuildServiceInput = {}): Promise<BuildServiceResult> {
-    const validationService = new DefaultValidationService(this.listener);
     const cwd = input.cwd ?? process.cwd();
     const buildFilePath = resolve(cwd, ".spex", "spex.yml");
     const agentsFilePath = resolve(cwd, "AGENTS.md");
@@ -397,8 +390,6 @@ export class DefaultBuildService implements BuildServicePort {
     const removedPackages: RemovedSpexPackage[] = [];
 
     this.listener.onBuildStarted?.(cwd);
-
-    await validationService.validate({ path: cwd });
 
     await writeFile(agentsFilePath, spexAgentsInstruction, "utf8");
     this.listener.onAgentsFileWritten?.(agentsFilePath);

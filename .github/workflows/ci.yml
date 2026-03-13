@@ -24,7 +24,7 @@ jobs:
         run: npm run build
 
       - name: Spex validate
-        run: npm run start validate
+        run: npm run start validate export
 
       - name: Run tests
         run: npm test

@@ -6,7 +6,6 @@ import { promisify } from "node:util";
 import { Minimatch } from "minimatch";
 import { parse as parseYaml } from "yaml";
 import { ensureCachedPackageRepositoryMirror } from "../../core/git/package-cache.js";
-import { DefaultValidationService } from "./validation-default.service.js";
 const execFileAsync = promisify(execFile);
 const defaultPackageHost = "github.com";
 const spexAgentsInstruction = `This project contains specifications of different types and instructions located in:
@@ -277,7 +276,6 @@ export class DefaultBuildService {
         this.listener = listener;
     }
     async build(input = {}) {
-        const validationService = new DefaultValidationService(this.listener);
         const cwd = input.cwd ?? process.cwd();
         const buildFilePath = resolve(cwd, ".spex", "spex.yml");
         const agentsFilePath = resolve(cwd, "AGENTS.md");
@@ -285,7 +283,6 @@ export class DefaultBuildService {
         const importedPackages = [];
         const removedPackages = [];
         this.listener.onBuildStarted?.(cwd);
-        await validationService.validate({ path: cwd });
         await writeFile(agentsFilePath, spexAgentsInstruction, "utf8");
         this.listener.onAgentsFileWritten?.(agentsFilePath);
         if (!(await pathExists(buildFilePath))) {

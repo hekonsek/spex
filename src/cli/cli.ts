@@ -97,19 +97,6 @@ program
           console.log(chalk.dim(`Building Spex project in ${cwd}`));
         }
       },
-      onValidationStarted(): void {
-        if (spinner) {
-          spinner.text = "Validating spex structure";
-        }
-      },
-      onTypeDirectoryValidated(type: SupportedSpexType, markdownFileCount: number): void {
-        if (spinner) {
-          spinner.text = `Validated spex/${type}`;
-          return;
-        }
-
-        console.log(chalk.dim(`Validated spex/${type}: ${markdownFileCount} markdown file(s)`));
-      },
       onAgentsFileWritten(path: string): void {
         if (spinner) {
           spinner.text = "Checking .spex/spex.yml";
@@ -177,15 +164,8 @@ program
       await service.build({ cwd: process.cwd() });
     } catch (error: unknown) {
       spinner?.fail("Build failed");
-
-      if (error instanceof SpexValidationError) {
-        for (const issue of error.issues) {
-          console.error(chalk.red(`ERROR ${issue}`));
-        }
-      } else {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(chalk.red(`ERROR ${message}`));
-      }
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(chalk.red(`ERROR ${message}`));
 
       process.exitCode = 1;
     } finally {
@@ -193,9 +173,11 @@ program
     }
   });
 
-program
-  .command("validate")
-  .description("Validate spex structure in current directory")
+const validateProgram = program.command("validate").description("Validate Spex content");
+
+validateProgram
+  .command("export")
+  .description("Validate current directory can be exported as a Spex package")
   .action(async (): Promise<void> => {
     const { spinner, dispose } = startInterruptibleSpinner("Validating spex structure");
 
