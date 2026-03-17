@@ -11,7 +11,6 @@ const execFileAsync = promisify(execFile);
 const currentDirectoryPath = dirname(fileURLToPath(import.meta.url));
 const cliPath = resolve(currentDirectoryPath, "..", "..", "src", "cli", "cli.js");
 const packageJsonPath = resolve(currentDirectoryPath, "..", "..", "package.json");
-const packageVersion = "1.2.3";
 const expectedAgentsInstruction = `This project contains specifications of different types and instructions located in the following directories:
 - \`spex/**/*.md\`
 - \`.spex/imports/**/*.md\`
@@ -23,11 +22,15 @@ Please take these specifications under consideration when working with this proj
 When in doubt, specifications in \`spex\` should take precedence over imported specifications in \`.spex/imports\`.
 `;
 
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 test("spex version prints the current package version outside the working directory", async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-version-"));
 
   try {
-    await writeFile(packageJsonPath, JSON.stringify({ version: ` ${packageVersion} ` }), "utf8");
+    const packageVersion = JSON.parse(await readFile(packageJsonPath, "utf8")).version?.trim();
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, "version"], {
       cwd: projectPath,
@@ -35,7 +38,8 @@ test("spex version prints the current package version outside the working direct
       maxBuffer: 10 * 1024 * 1024,
     });
 
-    assert.match(stdout, /OK version 1\.2\.3/);
+    assert.equal(typeof packageVersion, "string");
+    assert.match(stdout, new RegExp(`OK version ${escapeForRegExp(packageVersion)}`));
   } finally {
     await rm(projectPath, { recursive: true, force: true });
   }
