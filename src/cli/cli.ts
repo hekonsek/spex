@@ -78,7 +78,7 @@ program
     });
 
     try {
-      await service.run();
+      await service.currentPackageVersion();
     } catch (error: unknown) {
       spinner?.fail("Unable to read package version");
       const message = error instanceof Error ? error.message : String(error);

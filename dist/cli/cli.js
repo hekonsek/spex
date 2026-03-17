@@ -57,7 +57,7 @@ program
         },
     });
     try {
-        await service.run();
+        await service.currentPackageVersion();
     }
     catch (error) {
         spinner?.fail("Unable to read package version");

@@ -6,7 +6,7 @@ export class VersionService {
     constructor(listener) {
         this.listener = listener;
     }
-    async run() {
+    async currentPackageVersion() {
         const packageJsonPath = resolve(this.resolvePackageRootPath(), "package.json");
         const packageJsonContent = await readFile(packageJsonPath, "utf8");
         const packageJson = JSON.parse(packageJsonContent);

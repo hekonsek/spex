@@ -18,7 +18,7 @@ test("VersionService reads version from the current package", async () => {
   });
 
   // When
-  const version = await service.run();
+  const version = await service.currentPackageVersion();
 
   // Then
   assert.equal(version, packageVersion);

@@ -13,7 +13,7 @@ interface PackageJson {
 export class VersionService {
   constructor(private readonly listener: VersionServiceListener) {}
 
-  async run(): Promise<string> {
+  async currentPackageVersion(): Promise<string> {
     const packageJsonPath = resolve(this.resolvePackageRootPath(), "package.json");
     const packageJsonContent = await readFile(packageJsonPath, "utf8");
     const packageJson = JSON.parse(packageJsonContent) as PackageJson;
