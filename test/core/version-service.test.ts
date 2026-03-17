@@ -7,9 +7,7 @@ test("VersionService reads version from the current package", async () => {
   // Given
   const packageVersion = packageJson.version.trim();
 
-  const service = new VersionService({
-    onVersionResolved(version: string): void {},
-  });
+  const service = new VersionService();
 
   // When
   const version = await service.currentPackageVersion();

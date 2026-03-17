@@ -37,41 +37,24 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VersionService = void 0;
-var promises_1 = require("node:fs/promises");
-var node_path_1 = require("node:path");
-var node_url_1 = require("node:url");
+var package_json_1 = require("../../package.json");
 var VersionService = /** @class */ (function () {
-    function VersionService(listener) {
-        this.listener = listener;
+    function VersionService() {
     }
     VersionService.prototype.currentPackageVersion = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var packageJsonPath, packageJsonContent, packageJson, version;
+            var version;
             return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        packageJsonPath = (0, node_path_1.resolve)(this.resolvePackageRootPath(), "package.json");
-                        return [4 /*yield*/, (0, promises_1.readFile)(packageJsonPath, "utf8")];
-                    case 1:
-                        packageJsonContent = _a.sent();
-                        packageJson = JSON.parse(packageJsonContent);
-                        if (typeof packageJson.version !== "string") {
-                            throw new Error("The package.json version field must be a string.");
-                        }
-                        version = packageJson.version.trim();
-                        if (!version) {
-                            throw new Error("Missing version value.");
-                        }
-                        this.listener.onVersionResolved(version);
-                        return [2 /*return*/, version];
+                if (typeof package_json_1.version !== "string") {
+                    throw new Error("The package.json version field must be a string.");
                 }
+                version = package_json_1.version.trim();
+                if (!version) {
+                    throw new Error("Missing version value.");
+                }
+                return [2 /*return*/, version];
             });
         });
-    };
-    VersionService.prototype.resolvePackageRootPath = function () {
-        var serviceFilePath = (0, node_url_1.fileURLToPath)(import.meta.url);
-        var serviceDirectoryPath = (0, node_path_1.dirname)(serviceFilePath);
-        return (0, node_path_1.resolve)(serviceDirectoryPath, "..", "..");
     };
     return VersionService;
 }());

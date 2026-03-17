@@ -39,7 +39,7 @@ test("spex version prints the current package version outside the working direct
     });
 
     assert.equal(typeof packageVersion, "string");
-    assert.match(stdout, new RegExp(`OK version ${escapeForRegExp(packageVersion)}`));
+    assert.match(stdout, new RegExp(`${escapeForRegExp(packageVersion)}`));
   } finally {
     await rm(projectPath, { recursive: true, force: true });
   }

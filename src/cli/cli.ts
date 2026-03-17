@@ -66,27 +66,8 @@ program
   .command("version")
   .description("Print current project version")
   .action(async (): Promise<void> => {
-    const { spinner, dispose } = startInterruptibleSpinner("Reading package version");
-
-    const service = new VersionService({
-      onVersionResolved(version: string): void {
-        spinner?.succeed(chalk.green(`OK version ${version}`));
-        if (!spinner) {
-          console.log(chalk.green(`OK version ${version}`));
-        }
-      },
-    });
-
-    try {
-      await service.currentPackageVersion();
-    } catch (error: unknown) {
-      spinner?.fail("Unable to read package version");
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(chalk.red(`ERROR ${message}`));
-      process.exitCode = 1;
-    } finally {
-      dispose();
-    }
+    const version = await new VersionService().currentPackageVersion()
+    console.log(version)
   });
 
 program
