@@ -1,16 +1,11 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import { JSONPath } from "jsonpath-plus";
+import packageJson from "../../package.json" with { type: "json" };
 import test from "node:test";
 import { VersionService } from "../../src/core/version-service.js";
 
 test("VersionService reads version from the current package", async () => {
   // Given
-  const packageVersion = JSONPath<string>({
-    path: "$.version",
-    json: JSON.parse(await readFile("package.json", "utf8")),
-    wrap: false,
-  })?.trim();
+  const packageVersion = packageJson.version.trim();
 
   const service = new VersionService({
     onVersionResolved(version: string): void {},

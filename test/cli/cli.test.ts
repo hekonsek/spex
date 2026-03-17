@@ -6,11 +6,11 @@ import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import packageJson from "../../package.json" with { type: "json" };
 
 const execFileAsync = promisify(execFile);
 const currentDirectoryPath = dirname(fileURLToPath(import.meta.url));
 const cliPath = resolve(currentDirectoryPath, "..", "..", "src", "cli", "cli.js");
-const packageJsonPath = resolve(currentDirectoryPath, "..", "..", "package.json");
 const expectedAgentsInstruction = `This project contains specifications of different types and instructions located in the following directories:
 - \`spex/**/*.md\`
 - \`.spex/imports/**/*.md\`
@@ -30,7 +30,7 @@ test("spex version prints the current package version outside the working direct
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-version-"));
 
   try {
-    const packageVersion = JSON.parse(await readFile(packageJsonPath, "utf8")).version?.trim();
+    const packageVersion = packageJson.version.trim();
 
     const { stdout } = await execFileAsync(process.execPath, [cliPath, "version"], {
       cwd: projectPath,
