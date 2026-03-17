@@ -9,6 +9,16 @@ import { DefaultBuildService } from "../../../src/adapters/build/build-default.s
 
 const execFileAsync = promisify(execFile);
 const gitTestHost = "git.example.test";
+const expectedAgentsInstruction = `This project contains specifications of different types and instructions located in the following directories:
+- \`spex/**/*.md\`
+- \`.spex/imports/**/*.md\`
+
+Depending on the instruction or specification type it will be located in a relevant subdirectory like \`adr\`, \`instruction\`, \`dataformat\`, \`feature\`, etc.
+
+Please take these specifications under consideration when working with this project.
+
+When in doubt, specifications in \`spex\` should take precedence over imported specifications in \`.spex/imports\`.
+`;
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -135,7 +145,7 @@ test("build writes AGENTS.md and skips import cleanup when build file is missing
     const result = await service.build({ cwd: projectPath });
     const agentsContent = await readFile(resolve(projectPath, "AGENTS.md"), "utf8");
 
-    assert.match(agentsContent, /This project contains specifications of different types/);
+    assert.equal(agentsContent, expectedAgentsInstruction);
     assert.equal(result.importedPackages.length, 0);
     assert.equal(result.removedPackages.length, 0);
     assert.equal(
@@ -156,7 +166,7 @@ test("build does not validate the local spex directory before writing AGENTS.md"
     const result = await service.build({ cwd: projectPath });
     const agentsContent = await readFile(resolve(projectPath, "AGENTS.md"), "utf8");
 
-    assert.match(agentsContent, /This project contains specifications of different types/);
+    assert.equal(agentsContent, expectedAgentsInstruction);
     assert.equal(result.importedPackages.length, 0);
     assert.equal(result.removedPackages.length, 0);
   } finally {
