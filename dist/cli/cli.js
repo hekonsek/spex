@@ -10,7 +10,7 @@ import { DefaultInitService } from "../adapters/init/init-default.service.js";
 import { DefaultValidationService, SpexValidationError, } from "../adapters/build/validation-default.service.js";
 import { CatalogBuildService, SpexCatalogBuildError, } from "../core/catalog/build-service.js";
 import { CatalogDiscoverService, SpexCatalogDiscoverError, } from "../core/catalog/discover-service.js";
-import { VersionService, readPackageVersion } from "../core/version/version-service.js";
+import { VersionService, readPackageVersion } from "../core/version-service.js";
 function isInteractive() {
     return Boolean(process.stdout.isTTY && process.stderr.isTTY && !process.env.CI);
 }
