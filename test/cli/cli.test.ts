@@ -10,6 +10,8 @@ import test from "node:test";
 const execFileAsync = promisify(execFile);
 const currentDirectoryPath = dirname(fileURLToPath(import.meta.url));
 const cliPath = resolve(currentDirectoryPath, "..", "..", "src", "cli", "cli.js");
+const packageJsonPath = resolve(currentDirectoryPath, "..", "..", "package.json");
+const packageVersion = "1.2.3";
 const expectedAgentsInstruction = `This project contains specifications of different types and instructions located in the following directories:
 - \`spex/**/*.md\`
 - \`.spex/imports/**/*.md\`
@@ -20,6 +22,24 @@ Please take these specifications under consideration when working with this proj
 
 When in doubt, specifications in \`spex\` should take precedence over imported specifications in \`.spex/imports\`.
 `;
+
+test("spex version prints the current package version outside the working directory", async () => {
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-version-"));
+
+  try {
+    await writeFile(packageJsonPath, JSON.stringify({ version: ` ${packageVersion} ` }), "utf8");
+
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, "version"], {
+      cwd: projectPath,
+      env: { ...process.env, CI: "1" },
+      maxBuffer: 10 * 1024 * 1024,
+    });
+
+    assert.match(stdout, /OK version 1\.2\.3/);
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
 
 test("spex build does not require a local spex directory", async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-build-"));

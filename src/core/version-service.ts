@@ -1,9 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-
-export interface VersionServiceInput {
-  version: string;
-}
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export interface VersionServiceListener {
   onVersionResolved(version: string): void;
@@ -13,23 +10,19 @@ interface PackageJson {
   version?: unknown;
 }
 
-export async function readPackageVersion(cwd: string = process.cwd()): Promise<string> {
-  const packageJsonPath = resolve(cwd, "package.json");
-  const packageJsonContent = await readFile(packageJsonPath, "utf8");
-  const packageJson = JSON.parse(packageJsonContent) as PackageJson;
-
-  if (typeof packageJson.version !== "string") {
-    throw new Error("The package.json version field must be a string.");
-  }
-
-  return packageJson.version;
-}
-
 export class VersionService {
   constructor(private readonly listener: VersionServiceListener) {}
 
-  run(input: VersionServiceInput): string {
-    const version = input.version.trim();
+  async run(): Promise<string> {
+    const packageJsonPath = resolve(this.resolvePackageRootPath(), "package.json");
+    const packageJsonContent = await readFile(packageJsonPath, "utf8");
+    const packageJson = JSON.parse(packageJsonContent) as PackageJson;
+
+    if (typeof packageJson.version !== "string") {
+      throw new Error("The package.json version field must be a string.");
+    }
+
+    const version = packageJson.version.trim();
     if (!version) {
       throw new Error("Missing version value.");
     }
@@ -37,4 +30,11 @@ export class VersionService {
     this.listener.onVersionResolved(version);
     return version;
   }
+
+  private resolvePackageRootPath(): string {
+    const serviceFilePath = fileURLToPath(import.meta.url);
+    const serviceDirectoryPath = dirname(serviceFilePath);
+    return resolve(serviceDirectoryPath, "..", "..");
+  }
+  
 }

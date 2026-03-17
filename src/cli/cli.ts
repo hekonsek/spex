@@ -20,7 +20,7 @@ import {
   SpexCatalogDiscoverError,
 } from "../core/catalog/discover-service.js";
 import type { SupportedSpexType } from "../ports/build/validation.service.js";
-import { VersionService, readPackageVersion } from "../core/version-service.js";
+import { VersionService } from "../core/version-service.js";
 
 function isInteractive(): boolean {
   return Boolean(process.stdout.isTTY && process.stderr.isTTY && !process.env.CI);
@@ -78,8 +78,7 @@ program
     });
 
     try {
-      const version = await readPackageVersion(resolvePackageRootPath());
-      service.run({ version });
+      await service.run();
     } catch (error: unknown) {
       spinner?.fail("Unable to read package version");
       const message = error instanceof Error ? error.message : String(error);
