@@ -28,6 +28,45 @@ test("spex build does not require a local spex directory", async () => {
   }
 });
 
+test("spex init creates an empty build file", async () => {
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-init-"));
+
+  try {
+    const { stdout } = await execFileAsync(process.execPath, [cliPath, "init"], {
+      cwd: projectPath,
+      env: { ...process.env, CI: "1" },
+      maxBuffer: 10 * 1024 * 1024,
+    });
+
+    assert.match(stdout, /OK init completed \(config created, 0 package\(s\) added\)/);
+    assert.equal(await readFile(resolve(projectPath, ".spex", "spex.yml"), "utf8"), "");
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test("spex init adds packages from repeated --package options without duplicates", async () => {
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-init-packages-"));
+
+  try {
+    await execFileAsync(
+      process.execPath,
+      [cliPath, "init", "--package", "acme/alpha", "--package", "acme/beta", "--package", "acme/beta"],
+      {
+        cwd: projectPath,
+        env: { ...process.env, CI: "1" },
+        maxBuffer: 10 * 1024 * 1024,
+      },
+    );
+
+    const buildFileContent = await readFile(resolve(projectPath, ".spex", "spex.yml"), "utf8");
+
+    assert.match(buildFileContent, /^packages:\n  - acme\/alpha\n  - acme\/beta\n$/);
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
 test("spex validate export validates exportable Spex packages", async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-validate-export-"));
 

@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { DefaultBuildService } from "../adapters/build/build-default.service.js";
+import { DefaultInitService } from "../adapters/init/init-default.service.js";
 import { DefaultValidationService, SpexValidationError, } from "../adapters/build/validation-default.service.js";
 import { CatalogBuildService, SpexCatalogBuildError, } from "../core/catalog/build-service.js";
 import { CatalogDiscoverService, SpexCatalogDiscoverError, } from "../core/catalog/discover-service.js";
@@ -17,6 +18,9 @@ function resolvePackageRootPath() {
     const cliFilePath = fileURLToPath(import.meta.url);
     const cliDirectoryPath = dirname(cliFilePath);
     return resolve(cliDirectoryPath, "..", "..");
+}
+function collectStringOption(value, previous) {
+    return [...previous, value];
 }
 function startInterruptibleSpinner(text) {
     if (!isInteractive()) {
@@ -58,6 +62,62 @@ program
     }
     catch (error) {
         spinner?.fail("Unable to read package version");
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(chalk.red(`ERROR ${message}`));
+        process.exitCode = 1;
+    }
+    finally {
+        dispose();
+    }
+});
+program
+    .command("init")
+    .description("Create Spex config in current directory")
+    .option("--package <packageId>", "Add package import to .spex/spex.yml", collectStringOption, [])
+    .action(async (options) => {
+    const { spinner, dispose } = startInterruptibleSpinner("Initializing Spex project");
+    const service = new DefaultInitService({
+        onInitStarted(cwd) {
+            if (!spinner) {
+                console.log(chalk.dim(`Initializing Spex project in ${cwd}`));
+            }
+        },
+        onBuildFileCreated(path) {
+            if (spinner) {
+                spinner.text = "Creating .spex/spex.yml";
+                return;
+            }
+            console.log(chalk.dim(`Created ${path}`));
+        },
+        onBuildFileDetected(path) {
+            if (spinner) {
+                spinner.text = "Reading .spex/spex.yml";
+                return;
+            }
+            console.log(chalk.dim(`Found ${path}`));
+        },
+        onPackageAdded(packageId, buildFilePath) {
+            if (spinner) {
+                spinner.text = `Adding ${packageId}`;
+                return;
+            }
+            console.log(chalk.dim(`Added ${packageId} to ${buildFilePath}`));
+        },
+    });
+    try {
+        const result = await service.init({
+            cwd: process.cwd(),
+            packages: options.package,
+        });
+        const buildFileStatus = result.createdBuildFile ? "config created" : "config ready";
+        const message = `OK init completed (${buildFileStatus}, ${result.addedPackages.length} package(s) added)`;
+        spinner?.succeed(chalk.green(message));
+        if (!spinner) {
+            console.log(chalk.green(message));
+        }
+    }
+    catch (error) {
+        spinner?.fail("Init failed");
         const message = error instanceof Error ? error.message : String(error);
         console.error(chalk.red(`ERROR ${message}`));
         process.exitCode = 1;
