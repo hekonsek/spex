@@ -13,3 +13,5 @@ Items are usually markdown files, grouped by type, locted in `spex` directory in
     📁 instruction
       📄 instruction_0001_use_this_script_to_check_logs.md
 ```
+
+Project that is using Spex is also called **Spex Project**.
