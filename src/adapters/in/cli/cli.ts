@@ -5,22 +5,22 @@ import ora, { type Ora } from "ora";
 import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { DefaultBuildService } from "../adapters/build/build-default.service.js";
-import { DefaultInitService } from "../adapters/init/init-default.service.js";
+import { DefaultBuildService } from "../../build/build-default.service.js";
+import { DefaultInitService } from "../../init/init-default.service.js";
 import {
   DefaultValidationService,
   SpexValidationError,
-} from "../adapters/build/validation-default.service.js";
+} from "../../build/validation-default.service.js";
 import {
   CatalogBuildService,
   SpexCatalogBuildError,
-} from "../core/catalog/build-service.js";
+} from "../../../core/catalog/build-service.js";
 import {
   CatalogDiscoverService,
   SpexCatalogDiscoverError,
-} from "../core/catalog/discover-service.js";
-import type { SupportedSpexType } from "../ports/build/validation.service.js";
-import { VersionService } from "../core/version-service.js";
+} from "../../../core/catalog/discover-service.js";
+import type { SupportedSpexType } from "../../../ports/build/validation.service.js";
+import { VersionService } from "../../../core/version-service.js";
 
 function isInteractive(): boolean {
   return Boolean(process.stdout.isTTY && process.stderr.isTTY && !process.env.CI);
@@ -29,7 +29,7 @@ function isInteractive(): boolean {
 function resolvePackageRootPath(): string {
   const cliFilePath = fileURLToPath(import.meta.url);
   const cliDirectoryPath = dirname(cliFilePath);
-  return resolve(cliDirectoryPath, "..", "..");
+  return resolve(cliDirectoryPath, "..", "..", "..", "..");
 }
 
 function collectStringOption(value: string, previous: string[]): string[] {
