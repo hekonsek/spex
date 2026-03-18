@@ -90,7 +90,7 @@ function parseCatalogIndexPackages(content) {
                     continue;
                 }
                 seen.add(id);
-                packages.push({ id, name: id });
+                packages.push({ id, name: id, updated: 0 });
             }
             continue;
         }
@@ -109,9 +109,28 @@ function parseCatalogIndexPackages(content) {
         seen.add(id);
         const nameValue = record["name"];
         const name = typeof nameValue === "string" && nameValue.trim() ? nameValue.trim() : id;
-        packages.push({ id, name });
+        const updatedValue = record["updated"];
+        const updated = typeof updatedValue === "number" && Number.isFinite(updatedValue) ? updatedValue : 0;
+        packages.push({ id, name, updated });
     }
     return packages;
+}
+function compareCatalogPackages(left, right, sort, sortOrder) {
+    const direction = sortOrder === "desc" ? -1 : 1;
+    let comparison = 0;
+    if (sort === "updated") {
+        comparison = left.updated - right.updated;
+    }
+    else if (sort === "name") {
+        comparison = left.name.localeCompare(right.name);
+    }
+    else {
+        comparison = left.id.localeCompare(right.id);
+    }
+    if (comparison !== 0) {
+        return comparison * direction;
+    }
+    return left.id.localeCompare(right.id);
 }
 function parseCatalogPackageIdentifier(rawPackageId) {
     const value = rawPackageId.trim();
@@ -286,6 +305,19 @@ export class CatalogService {
         };
         this.listener.onCatalogBuildFinished?.(result);
         return result;
+    }
+    async list(input = {}) {
+        const cwd = input.cwd ?? process.cwd();
+        const indexFilePath = resolve(cwd, catalogIndexFileName);
+        const sort = input.sort ?? "id";
+        const sortOrder = input.sortOrder ?? "asc";
+        const content = await this.readCatalogIndexFile(indexFilePath);
+        const packages = parseCatalogIndexPackages(content).sort((left, right) => compareCatalogPackages(left, right, sort, sortOrder));
+        return {
+            cwd,
+            indexFilePath,
+            packages,
+        };
     }
     async discover(input = {}) {
         const projectCwd = input.projectCwd ?? process.cwd();

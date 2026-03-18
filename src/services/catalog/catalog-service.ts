@@ -22,6 +22,15 @@ export interface CatalogDiscoverInput {
   catalogIndexCwd?: string;
 }
 
+export type CatalogListSort = "id" | "name" | "updated";
+export type CatalogListSortOrder = "asc" | "desc";
+
+export interface CatalogListInput {
+  cwd?: string;
+  sort?: CatalogListSort;
+  sortOrder?: CatalogListSortOrder;
+}
+
 export interface CatalogAddPackageInput {
   projectCwd?: string;
   catalogIndexCwd?: string;
@@ -44,6 +53,13 @@ export interface CatalogBuildResult {
 export interface CatalogPackageEntry {
   id: string;
   name: string;
+  updated: number;
+}
+
+export interface CatalogListResult {
+  cwd: string;
+  indexFilePath: string;
+  packages: CatalogPackageEntry[];
 }
 
 export interface CatalogDiscoverResult {
@@ -168,7 +184,7 @@ function parseCatalogIndexPackages(content: string): CatalogPackageEntry[] {
         }
 
         seen.add(id);
-        packages.push({ id, name: id });
+        packages.push({ id, name: id, updated: 0 });
       }
 
       continue;
@@ -194,10 +210,36 @@ function parseCatalogIndexPackages(content: string): CatalogPackageEntry[] {
     seen.add(id);
     const nameValue = record["name"];
     const name = typeof nameValue === "string" && nameValue.trim() ? nameValue.trim() : id;
-    packages.push({ id, name });
+    const updatedValue = record["updated"];
+    const updated = typeof updatedValue === "number" && Number.isFinite(updatedValue) ? updatedValue : 0;
+    packages.push({ id, name, updated });
   }
 
   return packages;
+}
+
+function compareCatalogPackages(
+  left: CatalogPackageEntry,
+  right: CatalogPackageEntry,
+  sort: CatalogListSort,
+  sortOrder: CatalogListSortOrder,
+): number {
+  const direction = sortOrder === "desc" ? -1 : 1;
+  let comparison = 0;
+
+  if (sort === "updated") {
+    comparison = left.updated - right.updated;
+  } else if (sort === "name") {
+    comparison = left.name.localeCompare(right.name);
+  } else {
+    comparison = left.id.localeCompare(right.id);
+  }
+
+  if (comparison !== 0) {
+    return comparison * direction;
+  }
+
+  return left.id.localeCompare(right.id);
 }
 
 interface ParsedCatalogPackageIdentifier {
@@ -418,6 +460,23 @@ export class CatalogService {
 
     this.listener.onCatalogBuildFinished?.(result);
     return result;
+  }
+
+  async list(input: CatalogListInput = {}): Promise<CatalogListResult> {
+    const cwd = input.cwd ?? process.cwd();
+    const indexFilePath = resolve(cwd, catalogIndexFileName);
+    const sort = input.sort ?? "id";
+    const sortOrder = input.sortOrder ?? "asc";
+    const content = await this.readCatalogIndexFile(indexFilePath);
+    const packages = parseCatalogIndexPackages(content).sort((left, right) =>
+      compareCatalogPackages(left, right, sort, sortOrder),
+    );
+
+    return {
+      cwd,
+      indexFilePath,
+      packages,
+    };
   }
 
   async discover(input: CatalogDiscoverInput = {}): Promise<CatalogDiscoverResult> {

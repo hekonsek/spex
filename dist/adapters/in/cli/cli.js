@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { DefaultBuildService } from "../../build/build-default.service.js";
 import { DefaultInitService } from "../../init/init-default.service.js";
 import { DefaultValidationService, SpexValidationError, } from "../../build/validation-default.service.js";
-import { CatalogService, SpexCatalogError } from "../../../services/catalog/catalog-service.js";
+import { CatalogService, SpexCatalogError, } from "../../../services/catalog/catalog-service.js";
 import { VersionService } from "../../../services/version-service.js";
 function isInteractive() {
     return Boolean(process.stdout.isTTY && process.stderr.isTTY && !process.env.CI);
@@ -20,6 +20,30 @@ function resolvePackageRootPath() {
 }
 function collectStringOption(value, previous) {
     return [...previous, value];
+}
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+function formatCatalogPackageUpdatedTime(updatedEpochSeconds) {
+    const nowEpochSeconds = Math.floor(Date.now() / 1000);
+    const differenceSeconds = updatedEpochSeconds - nowEpochSeconds;
+    const absoluteDifferenceSeconds = Math.abs(differenceSeconds);
+    if (absoluteDifferenceSeconds < 60) {
+        return "Updated just now";
+    }
+    const relativeUnits = [
+        { unit: "year", seconds: 365 * 24 * 60 * 60 },
+        { unit: "month", seconds: 30 * 24 * 60 * 60 },
+        { unit: "week", seconds: 7 * 24 * 60 * 60 },
+        { unit: "day", seconds: 24 * 60 * 60 },
+        { unit: "hour", seconds: 60 * 60 },
+        { unit: "minute", seconds: 60 },
+    ];
+    for (const relativeUnit of relativeUnits) {
+        if (absoluteDifferenceSeconds >= relativeUnit.seconds) {
+            const relativeValue = Math.round(differenceSeconds / relativeUnit.seconds);
+            return `Updated ${relativeTimeFormatter.format(relativeValue, relativeUnit.unit)}`;
+        }
+    }
+    return "Updated just now";
 }
 function startInterruptibleSpinner(text) {
     if (!isInteractive()) {
@@ -292,6 +316,47 @@ catalogProgram
     }
     finally {
         dispose();
+    }
+});
+catalogProgram
+    .command("list")
+    .description("List packages from spex-catalog-index.yml")
+    .option("--sort <property>", "Sort by id, name or updated", "id")
+    .option("--sort-order <order>", "Sort order: asc or desc", "asc")
+    .action(async (options) => {
+    const allowedSortValues = ["id", "name", "updated"];
+    const allowedSortOrderValues = ["asc", "desc"];
+    if (!allowedSortValues.includes(options.sort)) {
+        console.error(chalk.red("ERROR Invalid --sort value, expected id, name or updated."));
+        process.exitCode = 1;
+        return;
+    }
+    if (!allowedSortOrderValues.includes(options.sortOrder)) {
+        console.error(chalk.red("ERROR Invalid --sort-order value, expected asc or desc."));
+        process.exitCode = 1;
+        return;
+    }
+    const service = new CatalogService();
+    try {
+        const result = await service.list({
+            cwd: process.cwd(),
+            sort: options.sort,
+            sortOrder: options.sortOrder,
+        });
+        for (const catalogPackage of result.packages) {
+            const details = `${catalogPackage.id} | ${formatCatalogPackageUpdatedTime(catalogPackage.updated)}`;
+            console.log(`${catalogPackage.name} ${chalk.gray(`(${details})`)}`);
+        }
+    }
+    catch (error) {
+        if (error instanceof SpexCatalogError) {
+            console.error(chalk.red(`ERROR ${error.message}`));
+        }
+        else {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(chalk.red(`ERROR ${message}`));
+        }
+        process.exitCode = 1;
     }
 });
 catalogProgram

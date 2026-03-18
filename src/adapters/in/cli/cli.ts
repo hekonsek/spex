@@ -11,7 +11,12 @@ import {
   DefaultValidationService,
   SpexValidationError,
 } from "../../build/validation-default.service.js";
-import { CatalogService, SpexCatalogError } from "../../../services/catalog/catalog-service.js";
+import {
+  CatalogService,
+  SpexCatalogError,
+  type CatalogListSort,
+  type CatalogListSortOrder,
+} from "../../../services/catalog/catalog-service.js";
 import type { SupportedSpexType } from "../../../ports/build/validation.service.js";
 import { VersionService } from "../../../services/version-service.js";
 
@@ -27,6 +32,36 @@ function resolvePackageRootPath(): string {
 
 function collectStringOption(value: string, previous: string[]): string[] {
   return [...previous, value];
+}
+
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+function formatCatalogPackageUpdatedTime(updatedEpochSeconds: number): string {
+  const nowEpochSeconds = Math.floor(Date.now() / 1000);
+  const differenceSeconds = updatedEpochSeconds - nowEpochSeconds;
+  const absoluteDifferenceSeconds = Math.abs(differenceSeconds);
+
+  if (absoluteDifferenceSeconds < 60) {
+    return "Updated just now";
+  }
+
+  const relativeUnits = [
+    { unit: "year", seconds: 365 * 24 * 60 * 60 },
+    { unit: "month", seconds: 30 * 24 * 60 * 60 },
+    { unit: "week", seconds: 7 * 24 * 60 * 60 },
+    { unit: "day", seconds: 24 * 60 * 60 },
+    { unit: "hour", seconds: 60 * 60 },
+    { unit: "minute", seconds: 60 },
+  ] as const;
+
+  for (const relativeUnit of relativeUnits) {
+    if (absoluteDifferenceSeconds >= relativeUnit.seconds) {
+      const relativeValue = Math.round(differenceSeconds / relativeUnit.seconds);
+      return `Updated ${relativeTimeFormatter.format(relativeValue, relativeUnit.unit)}`;
+    }
+  }
+
+  return "Updated just now";
 }
 
 function startInterruptibleSpinner(text: string): { spinner?: Ora; dispose: () => void } {
@@ -325,6 +360,52 @@ catalogProgram
       process.exitCode = 1;
     } finally {
       dispose();
+    }
+  });
+
+catalogProgram
+  .command("list")
+  .description("List packages from spex-catalog-index.yml")
+  .option("--sort <property>", "Sort by id, name or updated", "id")
+  .option("--sort-order <order>", "Sort order: asc or desc", "asc")
+  .action(async (options: { sort: string; sortOrder: string }): Promise<void> => {
+    const allowedSortValues: CatalogListSort[] = ["id", "name", "updated"];
+    const allowedSortOrderValues: CatalogListSortOrder[] = ["asc", "desc"];
+
+    if (!allowedSortValues.includes(options.sort as CatalogListSort)) {
+      console.error(chalk.red("ERROR Invalid --sort value, expected id, name or updated."));
+      process.exitCode = 1;
+      return;
+    }
+
+    if (!allowedSortOrderValues.includes(options.sortOrder as CatalogListSortOrder)) {
+      console.error(chalk.red("ERROR Invalid --sort-order value, expected asc or desc."));
+      process.exitCode = 1;
+      return;
+    }
+
+    const service = new CatalogService();
+
+    try {
+      const result = await service.list({
+        cwd: process.cwd(),
+        sort: options.sort as CatalogListSort,
+        sortOrder: options.sortOrder as CatalogListSortOrder,
+      });
+
+      for (const catalogPackage of result.packages) {
+        const details = `${catalogPackage.id} | ${formatCatalogPackageUpdatedTime(catalogPackage.updated)}`;
+        console.log(`${catalogPackage.name} ${chalk.gray(`(${details})`)}`);
+      }
+    } catch (error: unknown) {
+      if (error instanceof SpexCatalogError) {
+        console.error(chalk.red(`ERROR ${error.message}`));
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(chalk.red(`ERROR ${message}`));
+      }
+
+      process.exitCode = 1;
     }
   });
 
