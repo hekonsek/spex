@@ -8,9 +8,9 @@ import { fileURLToPath } from "node:url";
 import { DefaultBuildService } from "../../build/build-default.service.js";
 import { DefaultInitService } from "../../init/init-default.service.js";
 import { DefaultValidationService, SpexValidationError, } from "../../build/validation-default.service.js";
-import { CatalogBuildService, SpexCatalogBuildError, } from "../../../core/catalog/build-service.js";
-import { CatalogDiscoverService, SpexCatalogDiscoverError, } from "../../../core/catalog/discover-service.js";
-import { VersionService } from "../../../core/version-service.js";
+import { CatalogBuildService, SpexCatalogBuildError, } from "../../../services/catalog/build-service.js";
+import { CatalogDiscoverService, SpexCatalogDiscoverError, } from "../../../services/catalog/discover-service.js";
+import { VersionService } from "../../../services/version-service.js";
 function isInteractive() {
     return Boolean(process.stdout.isTTY && process.stderr.isTTY && !process.env.CI);
 }

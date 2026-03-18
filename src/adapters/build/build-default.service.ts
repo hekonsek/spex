@@ -13,7 +13,7 @@ import type {
   ImportedSpexPackage,
   RemovedSpexPackage,
 } from "../../ports/build/build.service.js";
-import { ensureCachedPackageRepositoryMirror } from "../../core/git/package-cache.js";
+import { ensureCachedPackageRepositoryMirror } from "../../services/git/package-cache.js";
 
 const execFileAsync = promisify(execFile);
 const defaultPackageHost = "github.com";

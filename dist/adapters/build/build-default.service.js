@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { Minimatch } from "minimatch";
 import { parse as parseYaml } from "yaml";
-import { ensureCachedPackageRepositoryMirror } from "../../core/git/package-cache.js";
+import { ensureCachedPackageRepositoryMirror } from "../../services/git/package-cache.js";
 const execFileAsync = promisify(execFile);
 const defaultPackageHost = "github.com";
 const spexAgentsInstruction = `This project contains specifications of different types and instructions located in the following directories:
