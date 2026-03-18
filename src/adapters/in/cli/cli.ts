@@ -11,14 +11,7 @@ import {
   DefaultValidationService,
   SpexValidationError,
 } from "../../build/validation-default.service.js";
-import {
-  CatalogBuildService,
-  SpexCatalogBuildError,
-} from "../../../services/catalog/build-service.js";
-import {
-  CatalogDiscoverService,
-  SpexCatalogDiscoverError,
-} from "../../../services/catalog/discover-service.js";
+import { CatalogService, SpexCatalogError } from "../../../services/catalog/catalog-service.js";
 import type { SupportedSpexType } from "../../../ports/build/validation.service.js";
 import { VersionService } from "../../../services/version-service.js";
 
@@ -276,7 +269,7 @@ catalogProgram
   .action(async (): Promise<void> => {
     const { spinner, dispose } = startInterruptibleSpinner("Building catalog index");
 
-    const service = new CatalogBuildService({
+    const service = new CatalogService({
       onCatalogBuildStarted(cwd: string): void {
         if (!spinner) {
           console.log(chalk.dim(`Building catalog index in ${cwd}`));
@@ -318,11 +311,11 @@ catalogProgram
     });
 
     try {
-      await service.run({ cwd: process.cwd() });
+      await service.build({ cwd: process.cwd() });
     } catch (error: unknown) {
       spinner?.fail("Catalog build failed");
 
-      if (error instanceof SpexCatalogBuildError) {
+      if (error instanceof SpexCatalogError) {
         console.error(chalk.red(`ERROR ${error.message}`));
       } else {
         const message = error instanceof Error ? error.message : String(error);
@@ -339,7 +332,7 @@ catalogProgram
   .command("discover")
   .description("Discover and add catalog packages to .spex/spex.yml")
   .action(async (): Promise<void> => {
-    const service = new CatalogDiscoverService({
+    const service = new CatalogService({
       onBuildFileCreated(path: string): void {
         console.log(chalk.dim(`Created ${path}`));
       },
@@ -349,7 +342,7 @@ catalogProgram
     });
 
     try {
-      let state = await service.run({
+      let state = await service.discover({
         projectCwd: process.cwd(),
         catalogIndexCwd: resolvePackageRootPath(),
       });
@@ -401,7 +394,7 @@ catalogProgram
         readline.close();
       }
     } catch (error: unknown) {
-      if (error instanceof SpexCatalogDiscoverError) {
+      if (error instanceof SpexCatalogError) {
         console.error(chalk.red(`ERROR ${error.message}`));
       } else {
         const message = error instanceof Error ? error.message : String(error);
