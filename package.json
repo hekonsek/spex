@@ -13,7 +13,7 @@
     "test:build": "rm -rf /tmp/spex-test-build && tsc --outDir /tmp/spex-test-build --rootDir . --module NodeNext --moduleResolution NodeNext --target ES2022 --lib ES2022 --resolveJsonModule --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --skipLibCheck $(find src test -name '*.ts' -print) && cp package.json /tmp/spex-test-build/package.json && ln -s \"$PWD/node_modules\" /tmp/spex-test-build/node_modules",
     "test": "npm run test:build && node --test $(find /tmp/spex-test-build/test -name '*.test.js' -print)",
     "start": "node dist/adapters/in/cli/cli.js",
-    "dev": "npm run build && npm run start",
+    "dev": "npm run build && npm run start --",
     "release": "npm version minor && git push --follow-tags",
     "install-latest": "npm install -g https://github.com/hekonsek/spex/archive/refs/tags/v${npm_package_version}.tar.gz"
   },
