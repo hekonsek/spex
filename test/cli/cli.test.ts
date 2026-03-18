@@ -22,28 +22,20 @@ Please take these specifications under consideration when working with this proj
 When in doubt, specifications in \`spex\` should take precedence over imported specifications in \`.spex/imports\`.
 `;
 
-function escapeForRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+// Tests: spex version
 
-test("spex version prints the current package version outside the working directory", async () => {
-  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-version-"));
+test("`spex version` should print CLI version", async () => {
+  // Given
+  const cliVersion = packageJson.version.trim();
 
-  try {
-    const packageVersion = packageJson.version.trim();
+  // When
+  const { stdout } = await execFileAsync(process.execPath, [cliPath, "version"])
 
-    const { stdout } = await execFileAsync(process.execPath, [cliPath, "version"], {
-      cwd: projectPath,
-      env: { ...process.env, CI: "1" },
-      maxBuffer: 10 * 1024 * 1024,
-    });
+  // Then
+  assert.equal(stdout.trim(), cliVersion);
+})
 
-    assert.equal(typeof packageVersion, "string");
-    assert.match(stdout, new RegExp(`${escapeForRegExp(packageVersion)}`));
-  } finally {
-    await rm(projectPath, { recursive: true, force: true });
-  }
-});
+// Tests: Other commands
 
 test("spex build does not require a local spex directory", async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-build-"));
