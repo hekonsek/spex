@@ -5,13 +5,12 @@ import { VersionService } from "../../src/core/version-service.js";
 
 test("VersionService reads version from the current package", async () => {
   // Given
-  const packageVersion = packageJson.version.trim();
-
-  const service = new VersionService();
+  const packageVersion = packageJson.version
+  const service = new VersionService()
 
   // When
-  const version = await service.currentPackageVersion();
+  const version = await service.currentPackageVersion()
 
   // Then
-  assert.equal(version, packageVersion);
-});
+  assert.equal(version, packageVersion)
+})
