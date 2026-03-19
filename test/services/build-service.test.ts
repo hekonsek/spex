@@ -5,20 +5,11 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import { DefaultBuildService } from "../../../src/adapters/build/build-default.service.js";
+import { BuildService, spexAgentsInstruction } from "../../src/services/build/build-service.js";
 
 const execFileAsync = promisify(execFile);
 const gitTestHost = "git.example.test";
-const expectedAgentsInstruction = `This project contains specifications of different types and instructions located in the following directories:
-- \`spex/**/*.md\`
-- \`.spex/imports/**/*.md\`
-
-Depending on the instruction or specification type it will be located in a relevant subdirectory like \`adr\`, \`instruction\`, \`dataformat\`, \`feature\`, etc.
-
-Please take these specifications under consideration when working with this project.
-
-When in doubt, specifications in \`spex\` should take precedence over imported specifications in \`.spex/imports\`.
-`;
+const expectedAgentsInstruction = spexAgentsInstruction;
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -140,7 +131,7 @@ test("build writes AGENTS.md and skips import cleanup when build file is missing
       "utf8",
     );
 
-    const service = new DefaultBuildService();
+    const service = new BuildService();
 
     const result = await service.build({ cwd: projectPath });
     const agentsContent = await readFile(resolve(projectPath, "AGENTS.md"), "utf8");
@@ -161,7 +152,7 @@ test("build does not validate the local spex directory before writing AGENTS.md"
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-build-without-spex-"));
 
   try {
-    const service = new DefaultBuildService();
+    const service = new BuildService();
 
     const result = await service.build({ cwd: projectPath });
     const agentsContent = await readFile(resolve(projectPath, "AGENTS.md"), "utf8");
@@ -193,7 +184,7 @@ test("build refreshes imported packages and removes stale package directories", 
 
     await writeProjectFixture(projectPath, [packageOne.packageId, packageTwo.packageId]);
 
-    const service = new DefaultBuildService();
+    const service = new BuildService();
     const firstBuild = await service.build({ cwd: projectPath });
 
     assert.equal(firstBuild.importedPackages.length, 2);

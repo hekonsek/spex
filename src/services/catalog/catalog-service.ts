@@ -1,17 +1,13 @@
-import { execFile } from "node:child_process";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { promisify } from "node:util";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import { ensureCachedPackageRepositoryMirror } from "../git/package-cache.js";
+import { BuildService, type BuildPackageMetadata } from "../build/build-service.js";
 
 export const catalogSpecificationFileName = "spex-catalog.yml";
 export const catalogIndexFileName = "spex-catalog-index.yml";
 
-const defaultPackageHost = "github.com";
 const spexDirectoryName = ".spex";
 const spexBuildFileName = "spex.yml";
-const execFileAsync = promisify(execFile);
 
 export interface CatalogBuildOptions {
   /**
@@ -246,159 +242,6 @@ function compareCatalogPackages(
   return left.id.localeCompare(right.id);
 }
 
-interface ParsedCatalogPackageIdentifier {
-  host: string;
-  namespace: string;
-  name: string;
-  cloneUrl: string;
-}
-
-function parseCatalogPackageIdentifier(rawPackageId: string): ParsedCatalogPackageIdentifier {
-  const value = rawPackageId.trim();
-
-  if (!value) {
-    throw new SpexCatalogError("Catalog packages list must not contain empty values.");
-  }
-
-  let host: string;
-  let namespace: string;
-  let name: string;
-
-  if (value.includes("://")) {
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(value);
-    } catch {
-      throw new SpexCatalogError(`Unsupported package URL format: ${rawPackageId}`);
-    }
-
-    const pathSegments = parsedUrl.pathname.split("/").filter(Boolean);
-    const namespaceSegment = pathSegments[0];
-    const nameSegment = pathSegments[1];
-    if (!namespaceSegment || !nameSegment) {
-      throw new SpexCatalogError(`Package URL must contain namespace and name: ${rawPackageId}`);
-    }
-
-    host = parsedUrl.hostname;
-    namespace = namespaceSegment;
-    name = nameSegment;
-  } else {
-    const pathSegments = value.split("/").filter(Boolean);
-
-    if (pathSegments.length === 2) {
-      const namespaceSegment = pathSegments[0];
-      const nameSegment = pathSegments[1];
-      if (!namespaceSegment || !nameSegment) {
-        throw new SpexCatalogError(`Unsupported package identifier format: ${rawPackageId}`);
-      }
-
-      host = defaultPackageHost;
-      namespace = namespaceSegment;
-      name = nameSegment;
-    } else if (pathSegments.length === 3) {
-      const hostSegment = pathSegments[0];
-      const namespaceSegment = pathSegments[1];
-      const nameSegment = pathSegments[2];
-
-      if (!hostSegment || !namespaceSegment || !nameSegment || !hostSegment.includes(".")) {
-        throw new SpexCatalogError(`Unsupported package identifier format: ${rawPackageId}`);
-      }
-
-      host = hostSegment;
-      namespace = namespaceSegment;
-      name = nameSegment;
-    } else {
-      throw new SpexCatalogError(`Unsupported package identifier format: ${rawPackageId}`);
-    }
-  }
-
-  name = name.replace(/\.git$/i, "");
-
-  if (!/^[A-Za-z0-9._-]+$/.test(host)) {
-    throw new SpexCatalogError(`Unsupported package host format: ${rawPackageId}`);
-  }
-
-  if (!/^[A-Za-z0-9._-]+$/.test(namespace)) {
-    throw new SpexCatalogError(`Unsupported package namespace format: ${rawPackageId}`);
-  }
-
-  if (!/^[A-Za-z0-9._-]+$/.test(name)) {
-    throw new SpexCatalogError(`Unsupported package name format: ${rawPackageId}`);
-  }
-
-  return {
-    host,
-    namespace,
-    name,
-    cloneUrl: `https://${host}/${namespace}/${name}.git`,
-  };
-}
-
-function extractReadmeTitle(readmeContent: string): string | null {
-  const normalized = readmeContent.replace(/^\uFEFF/, "");
-  const match = normalized.match(/^\s*#\s+(.+?)(?:\s+#*)?\s*$/m);
-  return match?.[1]?.trim() || null;
-}
-
-async function tryReadRepositoryName(cacheRepositoryPath: string): Promise<string | null> {
-  const readmeCandidates = ["README.md", "readme.md", "Readme.md", "README.MD"];
-
-  for (const readmePath of readmeCandidates) {
-    try {
-      const { stdout } = await execFileAsync("git", ["show", `HEAD:${readmePath}`], {
-        cwd: cacheRepositoryPath,
-        maxBuffer: 1024 * 1024,
-      });
-
-      const title = extractReadmeTitle(stdout);
-      if (title) {
-        return title;
-      }
-    } catch {
-      // Fallback to package ID when README/name cannot be read.
-    }
-  }
-
-  return null;
-}
-
-interface CatalogPackageMetadata {
-  name: string;
-  updated: number;
-}
-
-async function readRepositoryMetadata(packageId: string, cwd: string): Promise<CatalogPackageMetadata> {
-  const parsedPackage = parseCatalogPackageIdentifier(packageId);
-
-  try {
-    const cacheRepositoryPath = await ensureCachedPackageRepositoryMirror(parsedPackage, cwd);
-
-    const { stdout } = await execFileAsync("git", ["log", "--all", "-1", "--format=%ct"], {
-      cwd: cacheRepositoryPath,
-      maxBuffer: 1024 * 1024,
-    });
-
-    const updated = Number.parseInt(stdout.trim(), 10);
-    if (!Number.isFinite(updated) || updated <= 0) {
-      throw new SpexCatalogError(`Failed to read last update time for ${packageId}`);
-    }
-
-    const name = (await tryReadRepositoryName(cacheRepositoryPath)) ?? packageId;
-    return { name, updated };
-  } catch (error: unknown) {
-    if (error instanceof SpexCatalogError) {
-      throw error;
-    }
-
-    const typedError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
-    const details = [typedError.stderr, typedError.stdout].filter(Boolean).join("\n").trim();
-    const suffix = details ? ` ${details}` : "";
-    throw new SpexCatalogError(
-      `Failed to fetch catalog package metadata for ${packageId}.${suffix}`.trim(),
-    );
-  }
-}
-
 async function pathExists(path: string): Promise<boolean> {
   try {
     await stat(path);
@@ -420,7 +263,10 @@ interface ProjectBuildFileState {
 }
 
 export class CatalogService {
-  constructor(private readonly listener: CatalogServiceListener = {}) {}
+  constructor(
+    private readonly listener: CatalogServiceListener = {},
+    private readonly buildService: BuildService = new BuildService(),
+  ) {}
 
   async build(options: CatalogBuildOptions = {}): Promise<CatalogBuildResult> {
     const cwd = options.cwd ?? process.cwd();
@@ -445,7 +291,7 @@ export class CatalogService {
     const packages = parseCatalogSpecificationPackages(specificationContent);
     for (const catalogPackage of packages) {
       this.listener.onPackageDownload?.(catalogPackage.id);
-      const metadata = await readRepositoryMetadata(catalogPackage.id, cwd);
+      const metadata = await this.readRepositoryMetadata(catalogPackage.id, cwd);
       catalogPackage.name = metadata.name;
       catalogPackage.updated = metadata.updated;
       this.listener.onPackageDownloaded?.(catalogPackage.id);
@@ -563,5 +409,18 @@ export class CatalogService {
       root,
       packages,
     };
+  }
+
+  private async readRepositoryMetadata(packageId: string, cwd: string): Promise<BuildPackageMetadata> {
+    try {
+      return await this.buildService.readPackageMetadata({ packageId, cwd });
+    } catch (error: unknown) {
+      if (error instanceof SpexCatalogError) {
+        throw error;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      throw new SpexCatalogError(message);
+    }
   }
 }

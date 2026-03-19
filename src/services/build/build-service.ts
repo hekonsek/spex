@@ -1,24 +1,15 @@
 import { execFile } from "node:child_process";
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, rmdir, stat, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { dirname, relative, resolve } from "node:path";
-import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { Minimatch } from "minimatch";
 import { parse as parseYaml } from "yaml";
-import type {
-  BuildService as BuildServicePort,
-  BuildServiceInput,
-  BuildServiceListener,
-  BuildServiceResult,
-  ImportedSpexPackage,
-  RemovedSpexPackage,
-} from "../../ports/build/build.service.js";
-import { ensureCachedPackageRepositoryMirror } from "../../services/git/package-cache.js";
 
 const execFileAsync = promisify(execFile);
 const defaultPackageHost = "github.com";
 
-const spexAgentsInstruction = `This project contains specifications of different types and instructions located in the following directories:
+export const spexAgentsInstruction = `This project contains specifications of different types and instructions located in the following directories:
 - \`spex/**/*.md\`
 - \`.spex/imports/**/*.md\`
 
@@ -29,17 +20,70 @@ Please take these specifications under consideration when working with this proj
 When in doubt, specifications in \`spex\` should take precedence over imported specifications in \`.spex/imports\`.
 `;
 
-interface ParsedPackageId {
-  raw: string;
+export interface BuildServiceInput {
+  cwd?: string;
+}
+
+export interface ImportedSpexPackage {
+  packageId: string;
+  sourceUrl: string;
+  targetPath: string;
+}
+
+export interface RemovedSpexPackage {
+  packageId: string;
+  targetPath: string;
+}
+
+export interface BuildServiceResult {
+  cwd: string;
+  agentsFilePath: string;
+  buildFilePath: string;
+  importedPackages: ImportedSpexPackage[];
+  removedPackages: RemovedSpexPackage[];
+}
+
+export interface BuildServiceListener {
+  onBuildStarted?(cwd: string): void;
+  onAgentsFileWritten?(path: string): void;
+  onBuildFileDetected?(path: string): void;
+  onBuildFileMissing?(path: string): void;
+  onBuildPackagesResolved?(packageIds: string[]): void;
+  onPackageImportStarted?(packageId: string, sourceUrl: string, targetPath: string): void;
+  onPackageImported?(importedPackage: ImportedSpexPackage): void;
+  onStalePackageRemovalStarted?(removedPackage: RemovedSpexPackage): void;
+  onStalePackageRemoved?(removedPackage: RemovedSpexPackage): void;
+  onBuildFinished?(result: BuildServiceResult): void;
+}
+
+export interface BuildPackageMetadataInput {
+  packageId: string;
+  cwd?: string;
+}
+
+export interface BuildPackageMetadata {
+  name: string;
+  updated: number;
+}
+
+export interface CachedPackageRepository {
   host: string;
   namespace: string;
   name: string;
   cloneUrl: string;
 }
 
+interface ParsedPackageId extends CachedPackageRepository {
+  raw: string;
+}
+
 interface ImportedPackageDirectory {
   packageId: string;
   targetPath: string;
+}
+
+interface CompiledIgnorePattern {
+  matcher: Minimatch;
 }
 
 function isPathWithinOrEqual(parentPath: string, childPath: string): boolean {
@@ -98,10 +142,6 @@ function parseBuildFileExportIgnores(buildFileContent: string): string[] {
 
 function normalizeGlobPath(path: string): string {
   return path.replaceAll("\\", "/").replace(/^\/+/, "").replace(/\/+$/, "");
-}
-
-interface CompiledIgnorePattern {
-  matcher: Minimatch;
 }
 
 function compileIgnorePatterns(patterns: string[]): CompiledIgnorePattern[] {
@@ -251,6 +291,75 @@ function parsePackageId(rawPackageId: string): ParsedPackageId {
   };
 }
 
+export function getPackagesCacheDirectory(): string {
+  return resolve(homedir(), ".cache", "spex", "packages");
+}
+
+export function getCachedPackageRepositoryMirrorPath(repository: CachedPackageRepository): string {
+  return resolve(
+    getPackagesCacheDirectory(),
+    repository.host,
+    repository.namespace,
+    `${repository.name}.git`,
+  );
+}
+
+export async function ensureCachedPackageRepositoryMirror(
+  repository: CachedPackageRepository,
+  cwd: string,
+): Promise<string> {
+  const cacheRepositoryPath = getCachedPackageRepositoryMirrorPath(repository);
+
+  await mkdir(dirname(cacheRepositoryPath), { recursive: true });
+
+  if (!(await pathExists(cacheRepositoryPath))) {
+    await execFileAsync("git", ["clone", "--mirror", "--quiet", repository.cloneUrl, cacheRepositoryPath], {
+      cwd,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    return cacheRepositoryPath;
+  }
+
+  await execFileAsync("git", ["remote", "set-url", "origin", repository.cloneUrl], {
+    cwd: cacheRepositoryPath,
+    maxBuffer: 1024 * 1024,
+  });
+  await execFileAsync("git", ["fetch", "--quiet", "--prune", "origin"], {
+    cwd: cacheRepositoryPath,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+
+  return cacheRepositoryPath;
+}
+
+function extractReadmeTitle(readmeContent: string): string | null {
+  const normalized = readmeContent.replace(/^\uFEFF/, "");
+  const match = normalized.match(/^\s*#\s+(.+?)(?:\s+#*)?\s*$/m);
+  return match?.[1]?.trim() || null;
+}
+
+async function tryReadRepositoryName(cacheRepositoryPath: string): Promise<string | null> {
+  const readmeCandidates = ["README.md", "readme.md", "Readme.md", "README.MD"];
+
+  for (const readmePath of readmeCandidates) {
+    try {
+      const { stdout } = await execFileAsync("git", ["show", `HEAD:${readmePath}`], {
+        cwd: cacheRepositoryPath,
+        maxBuffer: 1024 * 1024,
+      });
+
+      const title = extractReadmeTitle(stdout);
+      if (title) {
+        return title;
+      }
+    } catch {
+      // Fallback to package ID when README/name cannot be read.
+    }
+  }
+
+  return null;
+}
+
 async function clonePackageToPath(
   cloneUrl: string,
   targetPath: string,
@@ -365,9 +474,7 @@ async function findStaleImportedPackages(
   expectedTargetPaths: ReadonlySet<string>,
 ): Promise<RemovedSpexPackage[]> {
   const importedDirectories = await listImportedPackageDirectories(importsRootPath);
-  return importedDirectories.filter(
-    ({ targetPath }) => !expectedTargetPaths.has(targetPath),
-  );
+  return importedDirectories.filter(({ targetPath }) => !expectedTargetPaths.has(targetPath));
 }
 
 async function removeImportedPackage(
@@ -378,7 +485,7 @@ async function removeImportedPackage(
   await removeEmptyDirectoryChain(dirname(removedPackage.targetPath), importsRootPath);
 }
 
-export class DefaultBuildService implements BuildServicePort {
+export class BuildService {
   constructor(private readonly listener: BuildServiceListener = {}) {}
 
   async build(input: BuildServiceInput = {}): Promise<BuildServiceResult> {
@@ -455,5 +562,32 @@ export class DefaultBuildService implements BuildServicePort {
     };
     this.listener.onBuildFinished?.(result);
     return result;
+  }
+
+  async readPackageMetadata(input: BuildPackageMetadataInput): Promise<BuildPackageMetadata> {
+    const cwd = input.cwd ?? process.cwd();
+    const parsedPackage = parsePackageId(input.packageId);
+
+    try {
+      const cacheRepositoryPath = await ensureCachedPackageRepositoryMirror(parsedPackage, cwd);
+
+      const { stdout } = await execFileAsync("git", ["log", "--all", "-1", "--format=%ct"], {
+        cwd: cacheRepositoryPath,
+        maxBuffer: 1024 * 1024,
+      });
+
+      const updated = Number.parseInt(stdout.trim(), 10);
+      if (!Number.isFinite(updated) || updated <= 0) {
+        throw new Error(`Failed to read last update time for ${parsedPackage.raw}`);
+      }
+
+      const name = (await tryReadRepositoryName(cacheRepositoryPath)) ?? parsedPackage.raw;
+      return { name, updated };
+    } catch (error: unknown) {
+      const typedError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
+      const details = [typedError.stderr, typedError.stdout].filter(Boolean).join("\n").trim();
+      const suffix = details ? ` ${details}` : "";
+      throw new Error(`Failed to fetch package metadata for ${parsedPackage.raw}.${suffix}`.trim());
+    }
   }
 }

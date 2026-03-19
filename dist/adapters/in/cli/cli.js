@@ -5,9 +5,9 @@ import ora from "ora";
 import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { DefaultBuildService } from "../../build/build-default.service.js";
 import { DefaultInitService } from "../../init/init-default.service.js";
 import { DefaultValidationService, SpexValidationError, } from "../../build/validation-default.service.js";
+import { BuildService } from "../../../services/build/build-service.js";
 import { CatalogService, SpexCatalogError, } from "../../../services/catalog/catalog-service.js";
 import { VersionService } from "../../../services/version-service.js";
 import { persistSpinnerText, replaceSpinnerText } from "./spinner-history.js";
@@ -135,7 +135,7 @@ program
     .description("Prepare current project to work with Spex")
     .action(async () => {
     const { spinner, dispose } = startInterruptibleSpinner("Preparing Spex project");
-    const service = new DefaultBuildService({
+    const service = new BuildService({
         onBuildStarted(cwd) {
             if (!spinner) {
                 console.log(chalk.dim(`Building Spex project in ${cwd}`));
