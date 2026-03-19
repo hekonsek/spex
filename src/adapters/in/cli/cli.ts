@@ -19,6 +19,7 @@ import {
 } from "../../../services/catalog/catalog-service.js";
 import type { SupportedSpexType } from "../../../ports/build/validation.service.js";
 import { VersionService } from "../../../services/version-service.js";
+import { persistSpinnerText, replaceSpinnerText } from "./spinner-history.js";
 
 function isInteractive(): boolean {
   return Boolean(process.stdout.isTTY && process.stderr.isTTY && !process.env.CI);
@@ -306,11 +307,13 @@ catalogProgram
 
     const service = new CatalogService({
       onCatalogBuildStarted(cwd: string): void {
-        console.log(`Building catalog index...`)
+        if (!spinner) {
+          console.log("Building catalog index...");
+        }
       },
       onCatalogSpecificationReading(path: string): void {
         if (spinner) {
-          spinner.text = "Reading spex-catalog.yml";
+          replaceSpinnerText(spinner, "Reading spex-catalog.yml", { persistPrevious: true });
           return;
         }
 
@@ -323,7 +326,7 @@ catalogProgram
       },
       onCatalogIndexWriting(path: string): void {
         if (spinner) {
-          spinner.text = "Writing spex-catalog-index.yml";
+          replaceSpinnerText(spinner, "Writing spex-catalog-index.yml", { persistPrevious: true });
           return;
         }
 
@@ -336,7 +339,9 @@ catalogProgram
       },
       onCatalogBuildFinished(result): void {
         const message = `OK catalog index built (${result.packages.length} package(s))`;
-        spinner?.succeed(chalk.green(message));
+        if (spinner) {
+          persistSpinnerText(spinner, message);
+        }
         if (!spinner) {
           console.log(chalk.green(message));
         }
@@ -344,7 +349,7 @@ catalogProgram
     });
 
     try {
-      await service.build()
+      await service.build();
     } catch (error: unknown) {
       spinner?.fail("Catalog build failed");
 

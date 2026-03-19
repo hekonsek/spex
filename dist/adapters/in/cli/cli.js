@@ -10,6 +10,7 @@ import { DefaultInitService } from "../../init/init-default.service.js";
 import { DefaultValidationService, SpexValidationError, } from "../../build/validation-default.service.js";
 import { CatalogService, SpexCatalogError, } from "../../../services/catalog/catalog-service.js";
 import { VersionService } from "../../../services/version-service.js";
+import { persistSpinnerText, replaceSpinnerText } from "./spinner-history.js";
 function isInteractive() {
     return Boolean(process.stdout.isTTY && process.stderr.isTTY && !process.env.CI);
 }
@@ -264,11 +265,13 @@ catalogProgram
     const { spinner, dispose } = startInterruptibleSpinner("Building catalog index");
     const service = new CatalogService({
         onCatalogBuildStarted(cwd) {
-            console.log(`Building catalog index...`);
+            if (!spinner) {
+                console.log("Building catalog index...");
+            }
         },
         onCatalogSpecificationReading(path) {
             if (spinner) {
-                spinner.text = "Reading spex-catalog.yml";
+                replaceSpinnerText(spinner, "Reading spex-catalog.yml", { persistPrevious: true });
                 return;
             }
             console.log(chalk.dim(`Reading ${path}`));
@@ -280,7 +283,7 @@ catalogProgram
         },
         onCatalogIndexWriting(path) {
             if (spinner) {
-                spinner.text = "Writing spex-catalog-index.yml";
+                replaceSpinnerText(spinner, "Writing spex-catalog-index.yml", { persistPrevious: true });
                 return;
             }
             console.log(chalk.dim(`Writing ${path}`));
@@ -292,7 +295,9 @@ catalogProgram
         },
         onCatalogBuildFinished(result) {
             const message = `OK catalog index built (${result.packages.length} package(s))`;
-            spinner?.succeed(chalk.green(message));
+            if (spinner) {
+                persistSpinnerText(spinner, message);
+            }
             if (!spinner) {
                 console.log(chalk.green(message));
             }
