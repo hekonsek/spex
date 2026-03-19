@@ -298,7 +298,6 @@ export class CatalogService {
         await writeFile(indexFilePath, indexYaml, "utf8");
         this.listener.onCatalogIndexWritten?.(indexFilePath);
         const result = {
-            cwd,
             specificationFilePath,
             indexFilePath,
             packages,

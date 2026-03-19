@@ -21,7 +21,6 @@ export interface CatalogBuildOptions {
 }
 
 export interface CatalogBuildResult {
-  cwd: string;
   specificationFilePath: string;
   indexFilePath: string;
   packages: CatalogIndexPackage[];
@@ -455,7 +454,6 @@ export class CatalogService {
     this.listener.onCatalogIndexWritten?.(indexFilePath);
 
     const result: CatalogBuildResult = {
-      cwd,
       specificationFilePath,
       indexFilePath,
       packages,
