@@ -55,7 +55,9 @@ Example structure:
       📁 config/
 ```
 
-`src/services` contains business features. Each service owns its behavior, its public contract, and any internal infrastructure integrations needed by that feature.
+`src/services` contains business features. Each service owns its behavior, its public contract, and any internal infrastructure integrations needed by that feature. Each directory in `src/services` reporesent one business "hex" represented by usually one service.
+
+For example payment feature libes in `src/services/payment` directory. That directory contains `payment.service.ts` with exported `PaymentService` class.
 
 A service must be used from outside through its public service contract only. That contract is the service's input port.
 
