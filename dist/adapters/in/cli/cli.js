@@ -259,14 +259,12 @@ validateProgram
 const catalogProgram = program.command("catalog").description("Work with Spex catalogs");
 catalogProgram
     .command("build")
-    .description("Build catalog index from spex-catalog.yml")
+    .description("Build catalog index from catalog specification")
     .action(async () => {
     const { spinner, dispose } = startInterruptibleSpinner("Building catalog index");
     const service = new CatalogService({
         onCatalogBuildStarted(cwd) {
-            if (!spinner) {
-                console.log(chalk.dim(`Building catalog index in ${cwd}`));
-            }
+            console.log(`Building catalog index...`);
         },
         onCatalogSpecificationReading(path) {
             if (spinner) {

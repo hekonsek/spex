@@ -300,15 +300,13 @@ const catalogProgram = program.command("catalog").description("Work with Spex ca
 
 catalogProgram
   .command("build")
-  .description("Build catalog index from spex-catalog.yml")
+  .description("Build catalog index from catalog specification")
   .action(async (): Promise<void> => {
     const { spinner, dispose } = startInterruptibleSpinner("Building catalog index");
 
     const service = new CatalogService({
       onCatalogBuildStarted(cwd: string): void {
-        if (!spinner) {
-          console.log(chalk.dim(`Building catalog index in ${cwd}`));
-        }
+        console.log(`Building catalog index...`)
       },
       onCatalogSpecificationReading(path: string): void {
         if (spinner) {
