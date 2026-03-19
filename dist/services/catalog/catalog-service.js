@@ -288,9 +288,11 @@ export class CatalogService {
         }
         const packages = parseCatalogSpecificationPackages(specificationContent);
         for (const catalogPackage of packages) {
+            this.listener.onPackageDownload?.(catalogPackage.id);
             const metadata = await readRepositoryMetadata(catalogPackage.id, cwd);
             catalogPackage.name = metadata.name;
             catalogPackage.updated = metadata.updated;
+            this.listener.onPackageDownloaded?.(catalogPackage.id);
         }
         this.listener.onCatalogSpecificationRead?.(specificationFilePath, packages.length);
         this.listener.onCatalogIndexWriting?.(indexFilePath);

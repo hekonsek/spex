@@ -79,6 +79,8 @@ export interface CatalogServiceListener {
   onCatalogBuildStarted?(cwd: string): void;
   onCatalogSpecificationReading?(path: string): void;
   onCatalogSpecificationRead?(path: string, packageCount: number): void;
+  onPackageDownload?(packageId: string): void;
+  onPackageDownloaded?(packageId: string): void;
   onCatalogIndexWriting?(path: string): void;
   onCatalogIndexWritten?(path: string): void;
   onCatalogBuildFinished?(result: CatalogBuildResult): void;
@@ -442,9 +444,11 @@ export class CatalogService {
 
     const packages = parseCatalogSpecificationPackages(specificationContent);
     for (const catalogPackage of packages) {
+      this.listener.onPackageDownload?.(catalogPackage.id);
       const metadata = await readRepositoryMetadata(catalogPackage.id, cwd);
       catalogPackage.name = metadata.name;
       catalogPackage.updated = metadata.updated;
+      this.listener.onPackageDownloaded?.(catalogPackage.id);
     }
     this.listener.onCatalogSpecificationRead?.(specificationFilePath, packages.length);
 

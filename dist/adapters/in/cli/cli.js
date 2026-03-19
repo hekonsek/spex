@@ -283,6 +283,18 @@ catalogProgram
                 console.log(chalk.dim(`Loaded ${packageCount} package(s) from ${path}`));
             }
         },
+        onPackageDownload(packageId) {
+            if (spinner) {
+                replaceSpinnerText(spinner, `Downloading ${packageId}`, { persistPrevious: true });
+                return;
+            }
+            console.log(chalk.dim(`Downloading ${packageId}`));
+        },
+        onPackageDownloaded(packageId) {
+            if (!spinner) {
+                console.log(chalk.dim(`Downloaded ${packageId}`));
+            }
+        },
         onCatalogIndexWriting(path) {
             if (spinner) {
                 replaceSpinnerText(spinner, "Writing spex-catalog-index.yml", { persistPrevious: true });

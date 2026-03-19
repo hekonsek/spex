@@ -114,3 +114,54 @@ test("should build catalog", { concurrency: false }, async () => {
     await rm(repositoriesRootPath, { recursive: true, force: true });
   }
 });
+
+test("should emit package download events", { concurrency: false }, async () => {
+  const catalogPath = await mkdtemp(resolve(tmpdir(), "spex-catalog-events-"));
+  const homePath = await mkdtemp(resolve(tmpdir(), "spex-catalog-events-home-"));
+  const repositoriesRootPath = await mkdtemp(resolve(tmpdir(), "spex-catalog-events-repositories-"));
+  const previousHome = process.env.HOME;
+  const startedDownloads: string[] = [];
+  const completedDownloads: string[] = [];
+
+  try {
+    process.env.HOME = homePath;
+    await configureGitHome(homePath, repositoriesRootPath);
+
+    const firstPackageId = await createPackageRepository(repositoriesRootPath, "acme", "first-package", {
+      "README.md": "# First Package\n",
+    });
+    const secondPackageId = await createPackageRepository(repositoriesRootPath, "acme", "second-package", {
+      "README.md": "# Second Package\n",
+    });
+
+    await writeFile(
+      resolve(catalogPath, catalogSpecificationFileName),
+      `packages:\n  - ${firstPackageId}\n  - ${secondPackageId}\n`,
+      "utf8",
+    );
+
+    const service = new CatalogService({
+      onPackageDownload(packageId: string): void {
+        startedDownloads.push(packageId);
+      },
+      onPackageDownloaded(packageId: string): void {
+        completedDownloads.push(packageId);
+      },
+    });
+
+    await service.build({ cwd: catalogPath });
+
+    assert.deepEqual(startedDownloads, [firstPackageId, secondPackageId]);
+    assert.deepEqual(completedDownloads, [firstPackageId, secondPackageId]);
+  } finally {
+    if (previousHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = previousHome;
+    }
+
+    await rm(catalogPath, { recursive: true, force: true });
+    await rm(homePath, { recursive: true, force: true });
+    await rm(repositoriesRootPath, { recursive: true, force: true });
+  }
+});
