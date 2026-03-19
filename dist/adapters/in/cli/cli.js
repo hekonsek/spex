@@ -301,7 +301,7 @@ catalogProgram
         },
     });
     try {
-        await service.build({ cwd: process.cwd() });
+        await service.build();
     }
     catch (error) {
         spinner?.fail("Catalog build failed");

@@ -13,8 +13,18 @@ const spexDirectoryName = ".spex";
 const spexBuildFileName = "spex.yml";
 const execFileAsync = promisify(execFile);
 
-export interface CatalogBuildInput {
-  cwd?: string;
+export interface CatalogBuildOptions {
+  /**
+   * The working directory to use for the catalog build process. If not provided, the current working directory of the process will be used.
+   */
+  cwd?: string
+}
+
+export interface CatalogBuildResult {
+  cwd: string;
+  specificationFilePath: string;
+  indexFilePath: string;
+  packages: CatalogIndexPackage[];
 }
 
 export interface CatalogDiscoverInput {
@@ -41,13 +51,6 @@ export interface CatalogIndexPackage {
   id: string;
   name: string;
   updated: number;
-}
-
-export interface CatalogBuildResult {
-  cwd: string;
-  specificationFilePath: string;
-  indexFilePath: string;
-  packages: CatalogIndexPackage[];
 }
 
 export interface CatalogPackageEntry {
@@ -418,8 +421,8 @@ interface ProjectBuildFileState {
 export class CatalogService {
   constructor(private readonly listener: CatalogServiceListener = {}) {}
 
-  async build(input: CatalogBuildInput = {}): Promise<CatalogBuildResult> {
-    const cwd = input.cwd ?? process.cwd();
+  async build(options: CatalogBuildOptions = {}): Promise<CatalogBuildResult> {
+    const cwd = options.cwd ?? process.cwd();
     const specificationFilePath = resolve(cwd, catalogSpecificationFileName);
     const indexFilePath = resolve(cwd, catalogIndexFileName);
 

@@ -269,8 +269,8 @@ export class CatalogService {
     constructor(listener = {}) {
         this.listener = listener;
     }
-    async build(input = {}) {
-        const cwd = input.cwd ?? process.cwd();
+    async build(options = {}) {
+        const cwd = options.cwd ?? process.cwd();
         const specificationFilePath = resolve(cwd, catalogSpecificationFileName);
         const indexFilePath = resolve(cwd, catalogIndexFileName);
         this.listener.onCatalogBuildStarted?.(cwd);
