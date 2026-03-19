@@ -71,3 +71,23 @@ test("persistSpinnerText can persist a custom message", () => {
     { type: "persist", symbol: "✔", text: "OK catalog index built (4 package(s))" },
   ]);
 });
+
+test("replaceSpinnerText followed by persistSpinnerText preserves the previous step and checked summary", () => {
+  const spinner = new FakeSpinner("Importing hekonsek/adr-node-cli");
+
+  replaceSpinnerText(spinner, "OK build completed (3 package(s) imported, 0 stale package(s) removed)", {
+    persistPrevious: true,
+  });
+  persistSpinnerText(spinner);
+
+  assert.equal(spinner.text, "OK build completed (3 package(s) imported, 0 stale package(s) removed)");
+  assert.deepEqual(spinner.events, [
+    { type: "persist", symbol: "✔", text: "Importing hekonsek/adr-node-cli" },
+    {
+      type: "start",
+      text: "OK build completed (3 package(s) imported, 0 stale package(s) removed)",
+      symbol: undefined,
+    },
+    { type: "persist", symbol: "✔", text: "OK build completed (3 package(s) imported, 0 stale package(s) removed)" },
+  ]);
+});

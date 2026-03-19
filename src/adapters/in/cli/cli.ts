@@ -173,7 +173,7 @@ program
       },
       onAgentsFileWritten(path: string): void {
         if (spinner) {
-          spinner.text = "Checking .spex/spex.yml";
+          replaceSpinnerText(spinner, "Checking .spex/spex.yml", { persistPrevious: true });
           return;
         }
 
@@ -181,7 +181,7 @@ program
       },
       onBuildFileDetected(path: string): void {
         if (spinner) {
-          spinner.text = "Reading .spex/spex.yml";
+          replaceSpinnerText(spinner, "Reading .spex/spex.yml", { persistPrevious: true });
           return;
         }
 
@@ -199,7 +199,7 @@ program
       },
       onPackageImportStarted(packageId: string, sourceUrl: string, targetPath: string): void {
         if (spinner) {
-          spinner.text = `Importing ${packageId}`;
+          replaceSpinnerText(spinner, `Importing ${packageId}`, { persistPrevious: true });
           return;
         }
 
@@ -212,7 +212,7 @@ program
       },
       onStalePackageRemovalStarted(removedPackage): void {
         if (spinner) {
-          spinner.text = `Removing ${removedPackage.packageId}`;
+          replaceSpinnerText(spinner, `Removing ${removedPackage.packageId}`, { persistPrevious: true });
           return;
         }
 
@@ -227,10 +227,13 @@ program
         const summary =
           `OK build completed (${result.importedPackages.length} package(s) imported, ` +
           `${result.removedPackages.length} stale package(s) removed)`;
-        spinner?.succeed(chalk.green(summary));
-        if (!spinner) {
-          console.log(chalk.green(summary));
+        if (spinner) {
+          replaceSpinnerText(spinner, summary, { persistPrevious: true });
+          persistSpinnerText(spinner);
+          return;
         }
+
+        console.log(chalk.green(summary));
       },
     });
 
@@ -340,11 +343,12 @@ catalogProgram
       onCatalogBuildFinished(result): void {
         const message = `OK catalog index built (${result.packages.length} package(s))`;
         if (spinner) {
-          persistSpinnerText(spinner, message);
+          replaceSpinnerText(spinner, message, { persistPrevious: true });
+          persistSpinnerText(spinner);
+          return;
         }
-        if (!spinner) {
-          console.log(chalk.green(message));
-        }
+
+        console.log(chalk.green(message));
       },
     });
 
