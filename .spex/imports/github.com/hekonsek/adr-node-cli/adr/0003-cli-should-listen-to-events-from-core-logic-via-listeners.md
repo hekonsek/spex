@@ -21,7 +21,7 @@ The core needs a mechanism to communicate **what is happening** without deciding
 
 ## Decision
 
-Introduce a **Listener** port interface in the core module, then implement listener in CLI to react to events (for example to print output). 
+Introduce a **Listener** port interface in the core module, then implement listener in CLI to react to events (for example to print output).
 
 - Core logic:
   - uses listener interface reference to generate events
@@ -32,6 +32,8 @@ Introduce a **Listener** port interface in the core module, then implement liste
   - owns all printing and exit-code decisions
 
 This follows Ports & Adapters (Hexagonal Architecture) principles.
+
+We should use the pattern only when it makes sense. If service method is very fast, it may be more suitable to just return a value instead of using listener.
 
 ### Example
 
