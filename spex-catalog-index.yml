@@ -11,3 +11,6 @@ packages:
   - id: hekonsek/adr-node-cli
     name: ADR (Architecture Decision Record) collection for Node CLI
     updated: 1773988589
+  - id: hekonsek/adr-minikube
+    name: ADR (Architecture Decision Record) collection for Minikube
+    updated: 1773989889

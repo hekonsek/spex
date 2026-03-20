@@ -3,6 +3,13 @@ packages:
   - hekonsek/scriptz
   
   # ADRs
-  - hekonsek/syllaibus # ADR metadata
+
+  ## ADR metadata
+  - hekonsek/syllaibus 
+  
+  ## Node
   - hekonsek/adr-node
   - hekonsek/adr-node-cli
+
+  ## Cloud
+  - hekonsek/adr-minikube
