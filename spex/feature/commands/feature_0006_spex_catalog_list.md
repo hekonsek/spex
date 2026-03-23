@@ -1,6 +1,6 @@
 # spex catalog list
 
-Lists packages in catalog.
+Lists packages in catalog bundled with this project.
 
 ## Output
 

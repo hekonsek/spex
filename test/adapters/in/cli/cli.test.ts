@@ -11,6 +11,7 @@ import packageJson from "../../../../package.json" with { type: "json" };
 const execFileAsync = promisify(execFile);
 const currentDirectoryPath = dirname(fileURLToPath(import.meta.url));
 const cliPath = resolve(currentDirectoryPath, "..", "..", "..", "..", "src", "adapters", "in", "cli", "cli.js");
+const bundledCatalogIndexPath = resolve(currentDirectoryPath, "..", "..", "..", "..", "spex-catalog-index.yml");
 const expectedAgentsInstruction = `This project contains specifications of different types and instructions located in the following directories:
 - \`spex/**/*.md\`
 - \`.spex/imports/**/*.md\`
@@ -28,6 +29,18 @@ function daysAgo(days: number): number {
 
 function stripAnsi(value: string): string {
   return value.replace(/\u001B\[[0-9;]*m/g, "");
+}
+
+async function withBundledCatalogIndex<T>(content: string, run: () => Promise<T>): Promise<T> {
+  const originalContent = await readFile(bundledCatalogIndexPath, "utf8");
+
+  await writeFile(bundledCatalogIndexPath, content, "utf8");
+
+  try {
+    return await run();
+  } finally {
+    await writeFile(bundledCatalogIndexPath, originalContent, "utf8");
+  }
 }
 
 // Tests: spex version
@@ -101,15 +114,14 @@ test("spex init adds packages from repeated --package options without duplicates
   }
 });
 
-test("spex catalog list prints packages sorted by id by default", async () => {
+test("spex catalog list prints packages sorted by id by default", { concurrency: false }, async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-catalog-list-id-"));
   const alphaUpdated = daysAgo(3);
   const charlieUpdated = daysAgo(1);
   const bravoUpdated = daysAgo(2);
 
   try {
-    await writeFile(
-      resolve(projectPath, "spex-catalog-index.yml"),
+    await withBundledCatalogIndex(
       `packages:
   - id: zoo/bravo
     name: Bravo
@@ -121,34 +133,33 @@ test("spex catalog list prints packages sorted by id by default", async () => {
     name: Alpha
     updated: ${alphaUpdated}
 `,
-      "utf8",
+      async () => {
+        const { stdout } = await execFileAsync(process.execPath, [cliPath, "catalog", "list"], {
+          cwd: projectPath,
+          env: { ...process.env, CI: "1" },
+          maxBuffer: 10 * 1024 * 1024,
+        });
+
+        assert.deepEqual(stripAnsi(stdout).trim().split("\n"), [
+          "Alpha (alpha/bravo | Updated 3 days ago)",
+          "Charlie (alpha/charlie | Updated yesterday)",
+          "Bravo (zoo/bravo | Updated 2 days ago)",
+        ]);
+      },
     );
-
-    const { stdout } = await execFileAsync(process.execPath, [cliPath, "catalog", "list"], {
-      cwd: projectPath,
-      env: { ...process.env, CI: "1" },
-      maxBuffer: 10 * 1024 * 1024,
-    });
-
-    assert.deepEqual(stripAnsi(stdout).trim().split("\n"), [
-      "Alpha (alpha/bravo | Updated 3 days ago)",
-      "Charlie (alpha/charlie | Updated yesterday)",
-      "Bravo (zoo/bravo | Updated 2 days ago)",
-    ]);
   } finally {
     await rm(projectPath, { recursive: true, force: true });
   }
 });
 
-test("spex catalog list supports sorting by name descending", async () => {
+test("spex catalog list supports sorting by name descending", { concurrency: false }, async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-catalog-list-name-"));
   const charlieUpdated = daysAgo(1);
   const bravoUpdated = daysAgo(2);
   const alphaUpdated = daysAgo(3);
 
   try {
-    await writeFile(
-      resolve(projectPath, "spex-catalog-index.yml"),
+    await withBundledCatalogIndex(
       `packages:
   - id: alpha/charlie
     name: Charlie
@@ -160,38 +171,37 @@ test("spex catalog list supports sorting by name descending", async () => {
     name: Alpha
     updated: ${alphaUpdated}
 `,
-      "utf8",
-    );
+      async () => {
+        const { stdout } = await execFileAsync(
+          process.execPath,
+          [cliPath, "catalog", "list", "--sort", "name", "--sort-order", "desc"],
+          {
+            cwd: projectPath,
+            env: { ...process.env, CI: "1" },
+            maxBuffer: 10 * 1024 * 1024,
+          },
+        );
 
-    const { stdout } = await execFileAsync(
-      process.execPath,
-      [cliPath, "catalog", "list", "--sort", "name", "--sort-order", "desc"],
-      {
-        cwd: projectPath,
-        env: { ...process.env, CI: "1" },
-        maxBuffer: 10 * 1024 * 1024,
+        assert.deepEqual(stripAnsi(stdout).trim().split("\n"), [
+          "Charlie (alpha/charlie | Updated yesterday)",
+          "Bravo (zoo/bravo | Updated 2 days ago)",
+          "Alpha (alpha/bravo | Updated 3 days ago)",
+        ]);
       },
     );
-
-    assert.deepEqual(stripAnsi(stdout).trim().split("\n"), [
-      "Charlie (alpha/charlie | Updated yesterday)",
-      "Bravo (zoo/bravo | Updated 2 days ago)",
-      "Alpha (alpha/bravo | Updated 3 days ago)",
-    ]);
   } finally {
     await rm(projectPath, { recursive: true, force: true });
   }
 });
 
-test("spex catalog list supports sorting by updated descending", async () => {
+test("spex catalog list supports sorting by updated descending", { concurrency: false }, async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-catalog-list-updated-"));
   const charlieUpdated = daysAgo(1);
   const bravoUpdated = daysAgo(2);
   const alphaUpdated = daysAgo(3);
 
   try {
-    await writeFile(
-      resolve(projectPath, "spex-catalog-index.yml"),
+    await withBundledCatalogIndex(
       `packages:
   - id: alpha/charlie
     name: Charlie
@@ -203,24 +213,24 @@ test("spex catalog list supports sorting by updated descending", async () => {
     name: Alpha
     updated: ${alphaUpdated}
 `,
-      "utf8",
-    );
+      async () => {
+        const { stdout } = await execFileAsync(
+          process.execPath,
+          [cliPath, "catalog", "list", "--sort", "updated", "--sort-order", "desc"],
+          {
+            cwd: projectPath,
+            env: { ...process.env, CI: "1" },
+            maxBuffer: 10 * 1024 * 1024,
+          },
+        );
 
-    const { stdout } = await execFileAsync(
-      process.execPath,
-      [cliPath, "catalog", "list", "--sort", "updated", "--sort-order", "desc"],
-      {
-        cwd: projectPath,
-        env: { ...process.env, CI: "1" },
-        maxBuffer: 10 * 1024 * 1024,
+        assert.deepEqual(stripAnsi(stdout).trim().split("\n"), [
+          "Charlie (alpha/charlie | Updated yesterday)",
+          "Bravo (zoo/bravo | Updated 2 days ago)",
+          "Alpha (alpha/bravo | Updated 3 days ago)",
+        ]);
       },
     );
-
-    assert.deepEqual(stripAnsi(stdout).trim().split("\n"), [
-      "Charlie (alpha/charlie | Updated yesterday)",
-      "Bravo (zoo/bravo | Updated 2 days ago)",
-      "Alpha (alpha/bravo | Updated 3 days ago)",
-    ]);
   } finally {
     await rm(projectPath, { recursive: true, force: true });
   }

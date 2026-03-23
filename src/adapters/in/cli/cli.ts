@@ -385,7 +385,7 @@ catalogProgram
 
 catalogProgram
   .command("list")
-  .description("List packages from spex-catalog-index.yml")
+  .description("List packages from bundled spex-catalog-index.yml")
   .option("--sort <property>", "Sort by id, name or updated", "id")
   .option("--sort-order <order>", "Sort order: asc or desc", "asc")
   .action(async (options: { sort: string; sortOrder: string }): Promise<void> => {
@@ -408,7 +408,7 @@ catalogProgram
 
     try {
       const result = await service.list({
-        cwd: process.cwd(),
+        cwd: resolvePackageRootPath(),
         sort: options.sort as CatalogListSort,
         sortOrder: options.sortOrder as CatalogListSortOrder,
       });
