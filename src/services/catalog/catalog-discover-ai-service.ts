@@ -223,7 +223,7 @@ export class CatalogDiscoverAiService {
       });
       initResult = await initService.init({
         cwd: projectCwd,
-        packages: discoveredPackages,
+        packages: new Set(discoveredPackages),
       });
     }
 

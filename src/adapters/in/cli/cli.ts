@@ -32,8 +32,10 @@ function resolvePackageRootPath(): string {
   return resolve(cliDirectoryPath, "..", "..", "..", "..");
 }
 
-function collectStringOption(value: string, previous: string[]): string[] {
-  return [...previous, value];
+function collectStringOption(value: string, previous: Set<string>): Set<string> {
+  const result = new Set(previous);
+  result.add(value);
+  return result;
 }
 
 const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -103,8 +105,8 @@ program
 program
   .command("init")
   .description("Create Spex config in current directory")
-  .option("--package <packageId>", "Add package import to .spex/spex.yml", collectStringOption, [])
-  .action(async (options: { package: string[] }): Promise<void> => {
+  .option("--package <packageId>", "Add package import to .spex/spex.yml", collectStringOption, new Set<string>())
+  .action(async (options: { package: Set<string> }): Promise<void> => {
     const { spinner, dispose } = startInterruptibleSpinner("Initializing Spex project");
 
     const service = new InitService({

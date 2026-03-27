@@ -38,7 +38,7 @@ test("init appends missing packages without duplicating existing ones", async ()
 
     const result = await service.init({
       cwd: projectPath,
-      packages: ["acme/alpha", "acme/beta", "acme/beta"],
+      packages: new Set(["acme/alpha", "acme/beta", "acme/beta"]),
     });
     const buildFileContent = await readFile(buildFilePath, "utf8");
     const root = parseYaml(buildFileContent) as { export?: { ignores?: string[] }; packages?: string[] };

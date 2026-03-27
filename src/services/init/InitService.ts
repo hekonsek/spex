@@ -4,7 +4,7 @@ import { BuildService } from "../build/build-service.js";
 
 export interface InitServiceOptions {
   cwd?: string;
-  packages?: string[];
+  packages?: Set<string>;
 }
 
 export interface InitServiceResult {
@@ -58,7 +58,7 @@ export class InitService {
 
   async init(input: InitServiceOptions = {}): Promise<InitServiceResult> {
     const cwd = input.cwd ?? process.cwd();
-    const requestedPackages = uniqueStrings(parseStringList(input.packages ?? []));
+    const requestedPackages = uniqueStrings([...input.packages ?? new Set<string>()].map((item) => item.trim()).filter(Boolean));
     const buildFileDirectoryPath = resolve(cwd, ".spex");
 
     this.listener.onInitStarted?.(cwd);
