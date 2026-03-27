@@ -4,7 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { Minimatch } from "minimatch";
-import { parse as parseYaml } from "yaml";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 const execFileAsync = promisify(execFile);
 const defaultPackageHost = "github.com";
@@ -66,6 +66,21 @@ export interface BuildPackageMetadata {
   updated: number;
 }
 
+export interface ReadBuildConfigInput {
+  cwd?: string;
+}
+
+export interface WriteBuildConfigInput {
+  cwd?: string;
+}
+
+export interface ReadBuildConfigResult {
+  cwd: string;
+  buildFilePath: string;
+  exists: boolean;
+  config: SpexBuildConfig;
+}
+
 export interface CachedPackageRepository {
   host: string;
   namespace: string;
@@ -84,6 +99,29 @@ interface ImportedPackageDirectory {
 
 interface CompiledIgnorePattern {
   matcher: Minimatch;
+}
+
+export class SpexBuildConfig {
+  constructor(readonly root: Record<string, unknown> = {}) {}
+
+  get packages(): string[] {
+    return parseStringList(this.root["packages"]);
+  }
+
+  set packages(value: string[]) {
+    this.root["packages"] = uniqueStrings(parseStringList(value));
+  }
+
+  get exportIgnores(): string[] {
+    const exportSection = asRecord(this.root["export"]);
+    return parseStringList(exportSection?.["ignores"]);
+  }
+
+  set exportIgnores(value: string[]) {
+    const exportSection = asRecord(this.root["export"]) ?? {};
+    exportSection["ignores"] = uniqueStrings(parseStringList(value));
+    this.root["export"] = exportSection;
+  }
 }
 
 function isPathWithinOrEqual(parentPath: string, childPath: string): boolean {
@@ -124,20 +162,37 @@ function parseStringList(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    if (seen.has(value)) {
+      continue;
+    }
+
+    seen.add(value);
+    result.push(value);
+  }
+
+  return result;
+}
+
 function parseBuildFileYaml(buildFileContent: string): Record<string, unknown> {
   const parsed = parseYaml(buildFileContent) as unknown;
   return asRecord(parsed) ?? {};
 }
 
 function parseBuildFilePackages(buildFileContent: string): string[] {
-  const root = parseBuildFileYaml(buildFileContent);
-  return parseStringList(root["packages"]);
+  return new SpexBuildConfig(parseBuildFileYaml(buildFileContent)).packages;
 }
 
 function parseBuildFileExportIgnores(buildFileContent: string): string[] {
-  const root = parseBuildFileYaml(buildFileContent);
-  const exportSection = asRecord(root["export"]);
-  return parseStringList(exportSection?.["ignores"]);
+  return new SpexBuildConfig(parseBuildFileYaml(buildFileContent)).exportIgnores;
+}
+
+function stringifyBuildConfig(config: SpexBuildConfig): string {
+  return Object.keys(config.root).length > 0 ? stringifyYaml(config.root) : "";
 }
 
 function normalizeGlobPath(path: string): string {
@@ -487,6 +542,40 @@ async function removeImportedPackage(
 
 export class BuildService {
   constructor(private readonly listener: BuildServiceListener = {}) {}
+
+  async readBuildConfig(input: ReadBuildConfigInput = {}): Promise<ReadBuildConfigResult> {
+    const cwd = input.cwd ?? process.cwd();
+    const buildFilePath = resolve(cwd, ".spex", "spex.yml");
+
+    if (!(await pathExists(buildFilePath))) {
+      return {
+        cwd,
+        buildFilePath,
+        exists: false,
+        config: new SpexBuildConfig(),
+      };
+    }
+
+    const buildFileContent = await readFile(buildFilePath, "utf8");
+
+    return {
+      cwd,
+      buildFilePath,
+      exists: true,
+      config: new SpexBuildConfig(parseBuildFileYaml(buildFileContent)),
+    };
+  }
+
+  async writeBuildConfig(config: SpexBuildConfig, input: WriteBuildConfigInput = {}): Promise<string> {
+    const cwd = input.cwd ?? process.cwd();
+    const buildFileDirectoryPath = resolve(cwd, ".spex");
+    const buildFilePath = resolve(buildFileDirectoryPath, "spex.yml");
+
+    await mkdir(buildFileDirectoryPath, { recursive: true });
+    await writeFile(buildFilePath, stringifyBuildConfig(config), "utf8");
+
+    return buildFilePath;
+  }
 
   async build(input: BuildServiceInput = {}): Promise<BuildServiceResult> {
     const cwd = input.cwd ?? process.cwd();

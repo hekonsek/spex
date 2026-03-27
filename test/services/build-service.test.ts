@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import { BuildService, spexAgentsInstruction } from "../../src/services/build/build-service.js";
+import { parse as parseYaml } from "yaml";
+import { BuildService, SpexBuildConfig, spexAgentsInstruction } from "../../src/services/build/build-service.js";
 
 const execFileAsync = promisify(execFile);
 const gitTestHost = "git.example.test";
@@ -232,5 +233,60 @@ test("build refreshes imported packages and removes stale package directories", 
     await rm(projectPath, { recursive: true, force: true });
     await rm(homePath, { recursive: true, force: true });
     await rm(repositoriesRootPath, { recursive: true, force: true });
+  }
+});
+
+test("readBuildConfig returns parsed config and preserves unknown sections", async () => {
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-build-config-read-"));
+
+  try {
+    await mkdir(resolve(projectPath, ".spex"), { recursive: true });
+    await writeFile(
+      resolve(projectPath, ".spex", "spex.yml"),
+      "export:\n  ignores:\n    - '**/*.pyc'\ncustom:\n  enabled: true\npackages:\n  - acme/alpha\n",
+      "utf8",
+    );
+
+    const service = new BuildService();
+    const result = await service.readBuildConfig({ cwd: projectPath });
+
+    assert.equal(result.exists, true);
+    assert.deepEqual(result.config.packages, ["acme/alpha"]);
+    assert.deepEqual(result.config.exportIgnores, ["**/*.pyc"]);
+    assert.deepEqual(result.config.root["custom"], { enabled: true });
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test("writeBuildConfig writes updated config while preserving unrelated sections", async () => {
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-build-config-write-"));
+
+  try {
+    const service = new BuildService();
+    const config = new SpexBuildConfig({
+      export: {
+        ignores: ["**/*.pyc"],
+      },
+      custom: {
+        enabled: true,
+      },
+    });
+
+    config.packages = ["acme/alpha", "acme/beta", "acme/beta"];
+
+    const buildFilePath = await service.writeBuildConfig(config, { cwd: projectPath });
+    const buildFileContent = await readFile(buildFilePath, "utf8");
+    const root = parseYaml(buildFileContent) as {
+      export?: { ignores?: string[] };
+      custom?: { enabled?: boolean };
+      packages?: string[];
+    };
+
+    assert.deepEqual(root.export?.ignores, ["**/*.pyc"]);
+    assert.deepEqual(root.custom, { enabled: true });
+    assert.deepEqual(root.packages, ["acme/alpha", "acme/beta"]);
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
   }
 });

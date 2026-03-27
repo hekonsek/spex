@@ -1,6 +1,6 @@
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { BuildService } from "../build/build-service.js";
 
 export interface InitServiceOptions {
   cwd?: string;
@@ -12,7 +12,7 @@ export interface InitServiceResult {
   buildFilePath: string;
   createdBuildFile: boolean;
   addedPackages: string[];
-  packages: string[];
+  packages: Set<string>;
 }
 
 export interface InitServiceListener {
@@ -21,14 +21,6 @@ export interface InitServiceListener {
   onBuildFileDetected?(path: string): void;
   onPackageAdded?(packageId: string, buildFilePath: string): void;
   onInitFinished?(result: InitServiceResult): void;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-
-  return value as Record<string, unknown>;
 }
 
 function parseStringList(value: unknown): string[] {
@@ -58,52 +50,28 @@ function uniqueStrings(values: string[]): string[] {
   return result;
 }
 
-function parseYamlObject(content: string): Record<string, unknown> {
-  const parsed = parseYaml(content) as unknown;
-  return asRecord(parsed) ?? {};
-}
-
-function parseBuildFilePackages(content: string): string[] {
-  const root = parseYamlObject(content);
-  return uniqueStrings(parseStringList(root["packages"]));
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch (error: unknown) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === "ENOENT") {
-      return false;
-    }
-
-    throw error;
-  }
-}
-
 export class InitService {
-  constructor(private readonly listener: InitServiceListener = {}) {}
+  constructor(
+    private readonly listener: InitServiceListener = {},
+    private readonly buildService: BuildService = new BuildService(),
+  ) {}
 
   async init(input: InitServiceOptions = {}): Promise<InitServiceResult> {
     const cwd = input.cwd ?? process.cwd();
     const requestedPackages = uniqueStrings(parseStringList(input.packages ?? []));
     const buildFileDirectoryPath = resolve(cwd, ".spex");
-    const buildFilePath = resolve(buildFileDirectoryPath, "spex.yml");
 
     this.listener.onInitStarted?.(cwd);
 
-    let createdBuildFile = false;
-    let root: Record<string, unknown> = {};
-    let packages: string[] = [];
+    const buildConfigResult = await this.buildService.readBuildConfig({ cwd });
+    const buildFilePath = buildConfigResult.buildFilePath;
+    const config = buildConfigResult.config;
+    const packages = new Set(config.packages);
+    const createdBuildFile = !buildConfigResult.exists;
 
-    if (await pathExists(buildFilePath)) {
+    if (buildConfigResult.exists) {
       this.listener.onBuildFileDetected?.(buildFilePath);
-      const buildFileContent = await readFile(buildFilePath, "utf8");
-      root = parseYamlObject(buildFileContent);
-      packages = parseBuildFilePackages(buildFileContent);
     } else {
-      createdBuildFile = true;
       await mkdir(buildFileDirectoryPath, { recursive: true });
       this.listener.onBuildFileCreated?.(buildFilePath);
       await writeFile(buildFilePath, "", "utf8");
@@ -111,18 +79,18 @@ export class InitService {
 
     const addedPackages: string[] = [];
     for (const packageId of requestedPackages) {
-      if (packages.includes(packageId)) {
+      if (packages.has(packageId)) {
         continue;
       }
 
-      packages.push(packageId);
+      packages.add(packageId);
       addedPackages.push(packageId);
       this.listener.onPackageAdded?.(packageId, buildFilePath);
     }
 
     if (addedPackages.length > 0) {
-      root["packages"] = packages;
-      await writeFile(buildFilePath, stringifyYaml(root), "utf8");
+      config.packages = [...packages];
+      await this.buildService.writeBuildConfig(config, { cwd });
     }
 
     const result: InitServiceResult = {
