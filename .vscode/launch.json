@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug current test file",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--enable-source-maps",
+        "--test",
+        "/tmp/spex-test-build/${relativeFileDirname}/${fileBasenameNoExtension}.js"
+      ],
+      "preLaunchTask": "npm: test:build:debug",
+      "console": "integratedTerminal",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "sourceMaps": true,
+      "outFiles": [
+        "/tmp/spex-test-build/**/*.js"
+      ]
+    }
+  ]
+}
