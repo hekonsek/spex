@@ -2,7 +2,7 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
-export interface InitServiceInput {
+export interface InitServiceOptions {
   cwd?: string;
   packages?: string[];
 }
@@ -85,7 +85,7 @@ async function pathExists(path: string): Promise<boolean> {
 export class InitService {
   constructor(private readonly listener: InitServiceListener = {}) {}
 
-  async init(input: InitServiceInput = {}): Promise<InitServiceResult> {
+  async init(input: InitServiceOptions = {}): Promise<InitServiceResult> {
     const cwd = input.cwd ?? process.cwd();
     const requestedPackages = uniqueStrings(parseStringList(input.packages ?? []));
     const buildFileDirectoryPath = resolve(cwd, ".spex");
