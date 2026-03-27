@@ -14,8 +14,8 @@
     "test": "npm run test:build && node --test $(find /tmp/spex-test-build/test -name '*.test.js' -print)",
     "start": "node dist/adapters/in/cli/cli.js",
     "dev": "npm run build && npm run start --",
-    "release": "npm version minor && git push --follow-tags",
-    "install-latest": "npm install -g https://github.com/hekonsek/spex/archive/refs/tags/v${npm_package_version}.tar.gz"
+    "install-latest": "npm install -g https://github.com/hekonsek/spex/releases/download/v${npm_package_version}/spex-${npm_package_version}.tgz"
+ 
   },
   "engines": {
     "node": ">=20.0.0"
