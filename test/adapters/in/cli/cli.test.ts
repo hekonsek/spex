@@ -10,8 +10,10 @@ import packageJson from "../../../../package.json" with { type: "json" };
 
 const execFileAsync = promisify(execFile);
 const currentDirectoryPath = dirname(fileURLToPath(import.meta.url));
-const cliPath = resolve(currentDirectoryPath, "..", "..", "..", "..", "src", "adapters", "in", "cli", "cli.js");
-const bundledCatalogIndexPath = resolve(currentDirectoryPath, "..", "..", "..", "..", "spex-catalog-index.yml");
+const projectRootPath = resolve(currentDirectoryPath, "..", "..", "..", "..");
+const cliPath = resolve(currentDirectoryPath, "..", "..", "..", "..", "src", "adapters", "in", "cli", "cli.ts");
+const tsxPath = resolve(projectRootPath, "node_modules", ".bin", "tsx");
+const cliCommand = [cliPath];
 const expectedAgentsInstruction = `This project contains specifications of different types and instructions located in the following directories:
 - \`spex/**/*.md\`
 - \`.spex/imports/**/*.md\`
@@ -31,15 +33,18 @@ function stripAnsi(value: string): string {
   return value.replace(/\u001B\[[0-9;]*m/g, "");
 }
 
-async function withBundledCatalogIndex<T>(content: string, run: () => Promise<T>): Promise<T> {
-  const originalContent = await readFile(bundledCatalogIndexPath, "utf8");
-
+async function withBundledCatalogIndex<T>(
+  content: string,
+  run: (catalogIndexCwd: string) => Promise<T>,
+): Promise<T> {
+  const catalogDirectoryPath = await mkdtemp(resolve(tmpdir(), "spex-catalog-index-"));
+  const bundledCatalogIndexPath = resolve(catalogDirectoryPath, "spex-catalog-index.yml");
   await writeFile(bundledCatalogIndexPath, content, "utf8");
 
   try {
-    return await run();
+    return await run(catalogDirectoryPath);
   } finally {
-    await writeFile(bundledCatalogIndexPath, originalContent, "utf8");
+    await rm(catalogDirectoryPath, { recursive: true, force: true });
   }
 }
 
@@ -62,7 +67,7 @@ test("`spex version` should print CLI version", async () => {
   const cliVersion = packageJson.version.trim();
 
   // When
-  const { stdout } = await execFileAsync(process.execPath, [cliPath, "version"])
+  const { stdout } = await execFileAsync(tsxPath, [...cliCommand, "version"])
 
   // Then
   assert.equal(stdout.trim(), cliVersion);
@@ -74,7 +79,7 @@ test("spex build does not require a local spex directory", async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-build-"));
 
   try {
-    await execFileAsync(process.execPath, [cliPath, "build"], {
+    await execFileAsync(tsxPath, [...cliCommand, "build"], {
       cwd: projectPath,
       env: { ...process.env, CI: "1" },
       maxBuffer: 10 * 1024 * 1024,
@@ -91,7 +96,7 @@ test("spex init creates an empty build file", async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-init-"));
 
   try {
-    const { stdout } = await execFileAsync(process.execPath, [cliPath, "init"], {
+    const { stdout } = await execFileAsync(tsxPath, [...cliCommand, "init"], {
       cwd: projectPath,
       env: { ...process.env, CI: "1" },
       maxBuffer: 10 * 1024 * 1024,
@@ -109,8 +114,8 @@ test("spex init adds packages from repeated --package options without duplicates
 
   try {
     await execFileAsync(
-      process.execPath,
-      [cliPath, "init", "--package", "acme/alpha", "--package", "acme/beta", "--package", "acme/beta"],
+      tsxPath,
+      [...cliCommand, "init", "--package", "acme/alpha", "--package", "acme/beta", "--package", "acme/beta"],
       {
         cwd: projectPath,
         env: { ...process.env, CI: "1" },
@@ -145,10 +150,10 @@ test("spex catalog list prints packages sorted by id by default", { concurrency:
     name: Alpha
     updated: ${alphaUpdated}
 `,
-      async () => {
-        const { stdout } = await execFileAsync(process.execPath, [cliPath, "catalog", "list"], {
+      async (catalogIndexCwd) => {
+        const { stdout } = await execFileAsync(tsxPath, [...cliCommand, "catalog", "list"], {
           cwd: projectPath,
-          env: { ...process.env, CI: "1" },
+          env: { ...process.env, CI: "1", SPEX_CATALOG_INDEX_CWD: catalogIndexCwd },
           maxBuffer: 10 * 1024 * 1024,
         });
 
@@ -183,13 +188,13 @@ test("spex catalog list supports sorting by name descending", { concurrency: fal
     name: Alpha
     updated: ${alphaUpdated}
 `,
-      async () => {
+      async (catalogIndexCwd) => {
         const { stdout } = await execFileAsync(
-          process.execPath,
-          [cliPath, "catalog", "list", "--sort", "name", "--sort-order", "desc"],
+          tsxPath,
+          [...cliCommand, "catalog", "list", "--sort", "name", "--sort-order", "desc"],
           {
             cwd: projectPath,
-            env: { ...process.env, CI: "1" },
+            env: { ...process.env, CI: "1", SPEX_CATALOG_INDEX_CWD: catalogIndexCwd },
             maxBuffer: 10 * 1024 * 1024,
           },
         );
@@ -225,13 +230,13 @@ test("spex catalog list supports sorting by updated descending", { concurrency: 
     name: Alpha
     updated: ${alphaUpdated}
 `,
-      async () => {
+      async (catalogIndexCwd) => {
         const { stdout } = await execFileAsync(
-          process.execPath,
-          [cliPath, "catalog", "list", "--sort", "updated", "--sort-order", "desc"],
+          tsxPath,
+          [...cliCommand, "catalog", "list", "--sort", "updated", "--sort-order", "desc"],
           {
             cwd: projectPath,
-            env: { ...process.env, CI: "1" },
+            env: { ...process.env, CI: "1", SPEX_CATALOG_INDEX_CWD: catalogIndexCwd },
             maxBuffer: 10 * 1024 * 1024,
           },
         );
@@ -262,15 +267,16 @@ test("spex catalog discover-ai initializes project with AI-selected packages", {
     name: Kafka
     updated: ${daysAgo(2)}
 `,
-      async () => {
+      async (catalogIndexCwd) => {
         const { stdout } = await execFileAsync(
-          process.execPath,
-          [cliPath, "catalog", "discover-ai", "--description", "Node CLI for Kafka operations"],
+          tsxPath,
+          [...cliCommand, "catalog", "discover-ai", "--description", "Node CLI for Kafka operations"],
           {
             cwd: projectPath,
             env: {
               ...process.env,
               CI: "1",
+              SPEX_CATALOG_INDEX_CWD: catalogIndexCwd,
               SPEX_CODEX_EXECUTABLE: fakeCodexPath,
             },
             maxBuffer: 10 * 1024 * 1024,
@@ -307,15 +313,16 @@ test("spex catalog discover-ai dry run prints discovered packages without initia
     name: Kafka
     updated: ${daysAgo(2)}
 `,
-      async () => {
+      async (catalogIndexCwd) => {
         const { stdout } = await execFileAsync(
-          process.execPath,
-          [cliPath, "catalog", "discover-ai", "--dry-run"],
+          tsxPath,
+          [...cliCommand, "catalog", "discover-ai", "--dry-run"],
           {
             cwd: projectPath,
             env: {
               ...process.env,
               CI: "1",
+              SPEX_CATALOG_INDEX_CWD: catalogIndexCwd,
               SPEX_CODEX_EXECUTABLE: fakeCodexPath,
             },
             maxBuffer: 10 * 1024 * 1024,
@@ -345,7 +352,7 @@ test("spex validate export validates exportable Spex packages", async () => {
     await mkdir(adrPath, { recursive: true });
     await writeFile(resolve(adrPath, "adr_0001.md"), "# ADR 0001\n", "utf8");
 
-    const { stdout } = await execFileAsync(process.execPath, [cliPath, "validate", "export"], {
+    const { stdout } = await execFileAsync(tsxPath, [...cliCommand, "validate", "export"], {
       cwd: projectPath,
       env: { ...process.env, CI: "1" },
       maxBuffer: 10 * 1024 * 1024,

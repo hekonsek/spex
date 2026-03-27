@@ -8,19 +8,16 @@
       "cwd": "${workspaceFolder}",
       "runtimeExecutable": "node",
       "runtimeArgs": [
-        "--enable-source-maps",
+        "--import",
+        "tsx",
         "--test",
-        "/tmp/spex-test-build/${relativeFileDirname}/${fileBasenameNoExtension}.js"
+        "${relativeFile}"
       ],
-      "preLaunchTask": "npm: test:build:debug",
       "console": "integratedTerminal",
       "skipFiles": [
         "<node_internals>/**"
       ],
-      "sourceMaps": true,
-      "outFiles": [
-        "/tmp/spex-test-build/**/*.js"
-      ]
+      "sourceMaps": true
     }
   ]
 }

@@ -32,6 +32,10 @@ function resolvePackageRootPath(): string {
   return resolve(cliDirectoryPath, "..", "..", "..", "..");
 }
 
+function resolveBundledCatalogIndexCwd(): string {
+  return process.env.SPEX_CATALOG_INDEX_CWD?.trim() || resolvePackageRootPath();
+}
+
 function collectStringOption(value: string, previous: Set<string>): Set<string> {
   const result = new Set(previous);
   result.add(value);
@@ -411,7 +415,7 @@ catalogProgram
 
     try {
       const result = await service.list({
-        cwd: resolvePackageRootPath(),
+        cwd: resolveBundledCatalogIndexCwd(),
         sort: options.sort as CatalogListSort,
         sortOrder: options.sortOrder as CatalogListSortOrder,
       });
@@ -448,7 +452,7 @@ catalogProgram
     try {
       let state = await service.discover({
         projectCwd: process.cwd(),
-        catalogIndexCwd: resolvePackageRootPath(),
+        catalogIndexCwd: resolveBundledCatalogIndexCwd(),
       });
 
       const readline = createInterface({
@@ -490,7 +494,7 @@ catalogProgram
 
           state = await service.addPackage({
             projectCwd: process.cwd(),
-            catalogIndexCwd: resolvePackageRootPath(),
+            catalogIndexCwd: resolveBundledCatalogIndexCwd(),
             packageId: selectedPackage.id,
           });
         }
@@ -605,7 +609,7 @@ catalogProgram
     try {
       const discoverInput = {
         projectCwd: process.cwd(),
-        catalogIndexCwd: resolvePackageRootPath(),
+        catalogIndexCwd: resolveBundledCatalogIndexCwd(),
         dryRun: options.dryRun ?? false,
         ...(options.description === undefined ? {} : { description: options.description }),
       };
