@@ -6,6 +6,8 @@ This command simplifies initialization of Spex project by using AI-based discove
 
 - `--description`: Optional description of the project. It will be used as an addition to project contents. For example: "This project is a Node CLI project that is used to analyze contents of Kafka queues" could return the following imports: `hekonsek/scriptz`, `hekonsek/adr-node`, `hekonsek/adr-node-cli` and `hekonsek/adr-kafka`.
 
+- `--dry-run`: Just display packages without running init.
+
 ## Discovery logic
 
 Initially run similar Codex command to discover list of packages from Spex catalog that could be useful for current project:
