@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { DefaultInitService } from "../../adapters/init/init-default.service.js";
 import { CatalogService, SpexCatalogError, } from "./catalog-service.js";
@@ -91,6 +92,7 @@ export class CatalogDiscoverAiService {
     async discover(input = {}) {
         const projectCwd = input.projectCwd ?? process.cwd();
         const catalogIndexCwd = input.catalogIndexCwd ?? process.cwd();
+        const dryRun = input.dryRun ?? false;
         this.listener.onAiDiscoveryStarted?.(projectCwd);
         const catalogResult = await this.catalogService.list({ cwd: catalogIndexCwd, sort: "id" });
         const catalogPackages = catalogResult.packages.map((catalogPackage) => catalogPackage.id);
@@ -126,24 +128,29 @@ export class CatalogDiscoverAiService {
         }
         const discoveredPackages = parseDiscoveredPackages(commandOutput.stdout, catalogPackages);
         this.listener.onPackagesDiscovered?.(discoveredPackages);
-        const initService = this.createInitService({
-            onBuildFileCreated: (path) => {
-                this.listener.onBuildFileCreated?.(path);
-            },
-            onPackageAdded: (packageId, buildFilePath) => {
-                this.listener.onPackageAdded?.(packageId, buildFilePath);
-            },
-        });
-        const initResult = await initService.init({
-            cwd: projectCwd,
-            packages: discoveredPackages,
-        });
+        let initResult;
+        if (!dryRun) {
+            const initService = this.createInitService({
+                onBuildFileCreated: (path) => {
+                    this.listener.onBuildFileCreated?.(path);
+                },
+                onPackageAdded: (packageId, buildFilePath) => {
+                    this.listener.onPackageAdded?.(packageId, buildFilePath);
+                },
+            });
+            initResult = await initService.init({
+                cwd: projectCwd,
+                packages: discoveredPackages,
+            });
+        }
         const result = {
             projectCwd,
             catalogIndexCwd,
+            dryRun,
+            buildFilePath: resolve(projectCwd, ".spex", "spex.yml"),
             catalogPackages,
             discoveredPackages,
-            ...initResult,
+            ...(initResult === undefined ? {} : { initResult }),
         };
         this.listener.onAiDiscoveryFinished?.(result);
         return result;

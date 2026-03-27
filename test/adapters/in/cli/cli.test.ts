@@ -293,6 +293,50 @@ test("spex catalog discover-ai initializes project with AI-selected packages", {
   }
 });
 
+test("spex catalog discover-ai dry run prints discovered packages without initializing project", { concurrency: false }, async () => {
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-catalog-discover-ai-dry-run-"));
+  const fakeCodexPath = await createFakeCodexExecutable('["acme/node-cli","acme/kafka"]\n');
+
+  try {
+    await withBundledCatalogIndex(
+      `packages:
+  - id: acme/node-cli
+    name: Node CLI
+    updated: ${daysAgo(1)}
+  - id: acme/kafka
+    name: Kafka
+    updated: ${daysAgo(2)}
+`,
+      async () => {
+        const { stdout } = await execFileAsync(
+          process.execPath,
+          [cliPath, "catalog", "discover-ai", "--dry-run"],
+          {
+            cwd: projectPath,
+            env: {
+              ...process.env,
+              CI: "1",
+              SPEX_CODEX_EXECUTABLE: fakeCodexPath,
+            },
+            maxBuffer: 10 * 1024 * 1024,
+          },
+        );
+
+        assert.match(
+          stripAnsi(stdout),
+          /OK discover-ai dry run completed \(2 package\(s\) discovered\)/,
+        );
+        assert.match(stripAnsi(stdout), /acme\/node-cli/);
+        assert.match(stripAnsi(stdout), /acme\/kafka/);
+        await assert.rejects(() => readFile(resolve(projectPath, ".spex", "spex.yml"), "utf8"));
+      },
+    );
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+    await rm(dirname(fakeCodexPath), { recursive: true, force: true });
+  }
+});
+
 test("spex validate export validates exportable Spex packages", async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-validate-export-"));
 

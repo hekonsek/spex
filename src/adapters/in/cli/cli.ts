@@ -514,7 +514,8 @@ catalogProgram
     "--description <description>",
     "Optional project description used together with current directory contents",
   )
-  .action(async (options: { description?: string }): Promise<void> => {
+  .option("--dry-run", "Display discovered packages without modifying .spex/spex.yml")
+  .action(async (options: { description?: string; dryRun?: boolean }): Promise<void> => {
     const { spinner, dispose } = startInterruptibleSpinner("Discovering catalog packages with AI");
 
     const service = new CatalogDiscoverAiService({
@@ -569,18 +570,33 @@ catalogProgram
         console.log(chalk.dim(`Added ${packageId} to ${buildFilePath}`));
       },
       onAiDiscoveryFinished(result): void {
-        const buildFileStatus = result.createdBuildFile ? "config created" : "config ready";
-        const message =
-          `OK discover-ai completed (${result.discoveredPackages.length} package(s) discovered, ` +
-          `${result.addedPackages.length} package(s) added, ${buildFileStatus})`;
+        const message = result.dryRun
+          ? `OK discover-ai dry run completed (${result.discoveredPackages.length} package(s) discovered)`
+          : (() => {
+              const initResult = result.initResult;
+              const buildFileStatus = initResult?.createdBuildFile ? "config created" : "config ready";
+              const addedPackageCount = initResult?.addedPackages.length ?? 0;
+              return (
+                `OK discover-ai completed (${result.discoveredPackages.length} package(s) discovered, ` +
+                `${addedPackageCount} package(s) added, ${buildFileStatus})`
+              );
+            })();
 
         if (spinner) {
           replaceSpinnerText(spinner, message, { persistPrevious: true });
           persistSpinnerText(spinner);
-          return;
+        } else {
+          console.log(chalk.green(message));
         }
 
-        console.log(chalk.green(message));
+        if (result.dryRun) {
+          const packageSummary = result.discoveredPackages.length > 0
+            ? result.discoveredPackages
+            : ["<none>"];
+          for (const packageId of packageSummary) {
+            console.log(packageId);
+          }
+        }
       },
     });
 
@@ -588,6 +604,7 @@ catalogProgram
       const discoverInput = {
         projectCwd: process.cwd(),
         catalogIndexCwd: resolvePackageRootPath(),
+        dryRun: options.dryRun ?? false,
         ...(options.description === undefined ? {} : { description: options.description }),
       };
 

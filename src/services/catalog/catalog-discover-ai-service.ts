@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { DefaultInitService } from "../../adapters/init/init-default.service.js";
 import type { InitService, InitServiceListener, InitServiceResult } from "../../ports/init/init.service.js";
@@ -20,13 +21,17 @@ export interface CatalogDiscoverAiInput {
   projectCwd?: string;
   catalogIndexCwd?: string;
   description?: string;
+  dryRun?: boolean;
 }
 
-export interface CatalogDiscoverAiResult extends InitServiceResult {
+export interface CatalogDiscoverAiResult {
   projectCwd: string;
   catalogIndexCwd: string;
+  dryRun: boolean;
+  buildFilePath: string;
   catalogPackages: string[];
   discoveredPackages: string[];
+  initResult?: InitServiceResult;
 }
 
 export interface CatalogDiscoverAiServiceListener {
@@ -164,6 +169,7 @@ export class CatalogDiscoverAiService {
   async discover(input: CatalogDiscoverAiInput = {}): Promise<CatalogDiscoverAiResult> {
     const projectCwd = input.projectCwd ?? process.cwd();
     const catalogIndexCwd = input.catalogIndexCwd ?? process.cwd();
+    const dryRun = input.dryRun ?? false;
 
     this.listener.onAiDiscoveryStarted?.(projectCwd);
 
@@ -206,25 +212,30 @@ export class CatalogDiscoverAiService {
     const discoveredPackages = parseDiscoveredPackages(commandOutput.stdout, catalogPackages);
     this.listener.onPackagesDiscovered?.(discoveredPackages);
 
-    const initService = this.createInitService({
-      onBuildFileCreated: (path: string): void => {
-        this.listener.onBuildFileCreated?.(path);
-      },
-      onPackageAdded: (packageId: string, buildFilePath: string): void => {
-        this.listener.onPackageAdded?.(packageId, buildFilePath);
-      },
-    });
-    const initResult = await initService.init({
-      cwd: projectCwd,
-      packages: discoveredPackages,
-    });
+    let initResult: InitServiceResult | undefined;
+    if (!dryRun) {
+      const initService = this.createInitService({
+        onBuildFileCreated: (path: string): void => {
+          this.listener.onBuildFileCreated?.(path);
+        },
+        onPackageAdded: (packageId: string, buildFilePath: string): void => {
+          this.listener.onPackageAdded?.(packageId, buildFilePath);
+        },
+      });
+      initResult = await initService.init({
+        cwd: projectCwd,
+        packages: discoveredPackages,
+      });
+    }
 
     const result: CatalogDiscoverAiResult = {
       projectCwd,
       catalogIndexCwd,
+      dryRun,
+      buildFilePath: resolve(projectCwd, ".spex", "spex.yml"),
       catalogPackages,
       discoveredPackages,
-      ...initResult,
+      ...(initResult === undefined ? {} : { initResult }),
     };
 
     this.listener.onAiDiscoveryFinished?.(result);

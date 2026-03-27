@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -8,6 +8,15 @@ import { SpexCatalogError, type CatalogPackageEntry } from "../../src/services/c
 
 function catalogPackage(id: string, name: string): CatalogPackageEntry {
   return { id, name, updated: 0 };
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch (error: unknown) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT" ? false : Promise.reject(error);
+  }
 }
 
 test("discover-ai builds prompt, validates AI result, and initializes project", async () => {
@@ -65,12 +74,57 @@ test("discover-ai builds prompt, validates AI result, and initializes project", 
     assert.match(observedCommands[0]?.args[8] ?? "", /- acme\/kafka: Kafka/);
 
     assert.deepEqual(result.discoveredPackages, ["acme/node-cli"]);
-    assert.deepEqual(result.addedPackages, ["acme/node-cli"]);
-    assert.equal(result.createdBuildFile, true);
+    assert.equal(result.dryRun, false);
+    assert.deepEqual(result.initResult?.addedPackages, ["acme/node-cli"]);
+    assert.equal(result.initResult?.createdBuildFile, true);
     assert.equal(
       await readFile(resolve(projectPath, ".spex", "spex.yml"), "utf8"),
       "packages:\n  - acme/node-cli\n",
     );
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test("discover-ai dry run returns discovered packages without initializing project", async () => {
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-discover-ai-dry-run-"));
+  let initServiceCreated = false;
+
+  try {
+    const service = new CatalogDiscoverAiService(
+      {},
+      {
+        catalogService: {
+          async list() {
+            return {
+              cwd: "/catalog",
+              indexFilePath: "/catalog/spex-catalog-index.yml",
+              packages: [catalogPackage("acme/node-cli", "Node CLI")],
+            };
+          },
+        },
+        execFileRunner: async () => ({
+          stdout: '["acme/node-cli"]\n',
+          stderr: "",
+        }),
+        createInitService: () => {
+          initServiceCreated = true;
+          throw new Error("init should not be called during dry run");
+        },
+      },
+    );
+
+    const result = await service.discover({
+      projectCwd: projectPath,
+      catalogIndexCwd: "/catalog",
+      dryRun: true,
+    });
+
+    assert.equal(result.dryRun, true);
+    assert.deepEqual(result.discoveredPackages, ["acme/node-cli"]);
+    assert.equal(result.initResult, undefined);
+    assert.equal(initServiceCreated, false);
+    assert.equal(await pathExists(resolve(projectPath, ".spex", "spex.yml")), false);
   } finally {
     await rm(projectPath, { recursive: true, force: true });
   }
