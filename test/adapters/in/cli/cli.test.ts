@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -41,6 +41,18 @@ async function withBundledCatalogIndex<T>(content: string, run: () => Promise<T>
   } finally {
     await writeFile(bundledCatalogIndexPath, originalContent, "utf8");
   }
+}
+
+async function createFakeCodexExecutable(stdout: string): Promise<string> {
+  const scriptPath = resolve(await mkdtemp(resolve(tmpdir(), "spex-fake-codex-")), "codex");
+  const scriptContent = `#!/usr/bin/env node
+process.stdout.write(${JSON.stringify(stdout)});
+`;
+
+  await writeFile(scriptPath, scriptContent, "utf8");
+  await chmod(scriptPath, 0o755);
+
+  return scriptPath;
 }
 
 // Tests: spex version
@@ -233,6 +245,51 @@ test("spex catalog list supports sorting by updated descending", { concurrency: 
     );
   } finally {
     await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test("spex catalog discover-ai initializes project with AI-selected packages", { concurrency: false }, async () => {
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-catalog-discover-ai-"));
+  const fakeCodexPath = await createFakeCodexExecutable('["acme/node-cli","acme/kafka"]\n');
+
+  try {
+    await withBundledCatalogIndex(
+      `packages:
+  - id: acme/node-cli
+    name: Node CLI
+    updated: ${daysAgo(1)}
+  - id: acme/kafka
+    name: Kafka
+    updated: ${daysAgo(2)}
+`,
+      async () => {
+        const { stdout } = await execFileAsync(
+          process.execPath,
+          [cliPath, "catalog", "discover-ai", "--description", "Node CLI for Kafka operations"],
+          {
+            cwd: projectPath,
+            env: {
+              ...process.env,
+              CI: "1",
+              SPEX_CODEX_EXECUTABLE: fakeCodexPath,
+            },
+            maxBuffer: 10 * 1024 * 1024,
+          },
+        );
+
+        assert.match(
+          stripAnsi(stdout),
+          /OK discover-ai completed \(2 package\(s\) discovered, 2 package\(s\) added, config created\)/,
+        );
+        assert.equal(
+          await readFile(resolve(projectPath, ".spex", "spex.yml"), "utf8"),
+          "packages:\n  - acme/node-cli\n  - acme/kafka\n",
+        );
+      },
+    );
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+    await rm(dirname(fakeCodexPath), { recursive: true, force: true });
   }
 });
 

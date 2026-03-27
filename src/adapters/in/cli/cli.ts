@@ -17,6 +17,7 @@ import {
   type CatalogListSort,
   type CatalogListSortOrder,
 } from "../../../services/catalog/catalog-service.js";
+import { CatalogDiscoverAiService } from "../../../services/catalog/catalog-discover-ai-service.js";
 import type { SupportedSpexType } from "../../../ports/build/validation.service.js";
 import { VersionService } from "../../../services/version-service.js";
 import { persistSpinnerText, replaceSpinnerText } from "./spinner-history.js";
@@ -503,6 +504,107 @@ catalogProgram
       }
 
       process.exitCode = 1;
+    }
+  });
+
+catalogProgram
+  .command("discover-ai")
+  .description("Use AI to discover and add relevant catalog packages to .spex/spex.yml")
+  .option(
+    "--description <description>",
+    "Optional project description used together with current directory contents",
+  )
+  .action(async (options: { description?: string }): Promise<void> => {
+    const { spinner, dispose } = startInterruptibleSpinner("Discovering catalog packages with AI");
+
+    const service = new CatalogDiscoverAiService({
+      onAiDiscoveryStarted(projectCwd: string): void {
+        if (!spinner) {
+          console.log(chalk.dim(`Inspecting ${projectCwd}`));
+        }
+      },
+      onCatalogLoaded(catalogPackages): void {
+        if (spinner) {
+          replaceSpinnerText(spinner, `Loaded ${catalogPackages.length} catalog package(s)`, {
+            persistPrevious: true,
+          });
+          return;
+        }
+
+        console.log(chalk.dim(`Loaded ${catalogPackages.length} catalog package(s)`));
+      },
+      onCodexStarted(): void {
+        if (spinner) {
+          replaceSpinnerText(spinner, "Running Codex discovery", { persistPrevious: true });
+          return;
+        }
+
+        console.log(chalk.dim("Running Codex discovery"));
+      },
+      onPackagesDiscovered(packageIds: string[]): void {
+        if (spinner) {
+          replaceSpinnerText(spinner, `Discovered ${packageIds.length} package(s)`, {
+            persistPrevious: true,
+          });
+          return;
+        }
+
+        const packageSummary = packageIds.length > 0 ? packageIds.join(", ") : "none";
+        console.log(chalk.dim(`AI selected: ${packageSummary}`));
+      },
+      onBuildFileCreated(path: string): void {
+        if (spinner) {
+          replaceSpinnerText(spinner, "Creating .spex/spex.yml", { persistPrevious: true });
+          return;
+        }
+
+        console.log(chalk.dim(`Created ${path}`));
+      },
+      onPackageAdded(packageId: string, buildFilePath: string): void {
+        if (spinner) {
+          replaceSpinnerText(spinner, `Adding ${packageId}`, { persistPrevious: true });
+          return;
+        }
+
+        console.log(chalk.dim(`Added ${packageId} to ${buildFilePath}`));
+      },
+      onAiDiscoveryFinished(result): void {
+        const buildFileStatus = result.createdBuildFile ? "config created" : "config ready";
+        const message =
+          `OK discover-ai completed (${result.discoveredPackages.length} package(s) discovered, ` +
+          `${result.addedPackages.length} package(s) added, ${buildFileStatus})`;
+
+        if (spinner) {
+          replaceSpinnerText(spinner, message, { persistPrevious: true });
+          persistSpinnerText(spinner);
+          return;
+        }
+
+        console.log(chalk.green(message));
+      },
+    });
+
+    try {
+      const discoverInput = {
+        projectCwd: process.cwd(),
+        catalogIndexCwd: resolvePackageRootPath(),
+        ...(options.description === undefined ? {} : { description: options.description }),
+      };
+
+      await service.discover(discoverInput);
+    } catch (error: unknown) {
+      spinner?.fail("AI discovery failed");
+
+      if (error instanceof SpexCatalogError) {
+        console.error(chalk.red(`ERROR ${error.message}`));
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(chalk.red(`ERROR ${message}`));
+      }
+
+      process.exitCode = 1;
+    } finally {
+      dispose();
     }
   });
 
