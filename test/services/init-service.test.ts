@@ -19,6 +19,25 @@ test("init should create an empty .spex/spex.yml file when config is missing", a
   assert.equal(await readFile(resolve(projectPath, ".spex", "spex.yml"), "utf8"), "");
 });
 
+test("init should add packages to build config", async () => {
+  // Given
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-init-generated-packages-"));
+  const buildFilePath = resolve(projectPath, ".spex", "spex.yml");
+  const service = new InitService();
+
+  // When
+  const result = await service.init({
+    cwd: projectPath,
+    packages: new Set(["acme/alpha", "acme/beta"]),
+  });
+  const buildFileContent = await readFile(buildFilePath, "utf8");
+  const root = parseYaml(buildFileContent) as { packages?: string[] };
+
+  // Then
+  assert.deepEqual(result.addedPackages, ["acme/alpha", "acme/beta"]);
+  assert.deepEqual(root.packages, ["acme/alpha", "acme/beta"]);
+});
+
 test("init should append missing packages without duplicating existing ones", async () => {
   // Given
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-init-packages-"));
