@@ -4,7 +4,7 @@ packages:
     updated: 1773047221
   - id: hekonsek/syllaibus
     name: "Syllaibus: Syllabus for AI"
-    updated: 1771246436
+    updated: 1774522018
   - id: hekonsek/adr-node
     name: ADR (Architecture Decision Record) collection for Node
     updated: 1773840224
@@ -13,4 +13,4 @@ packages:
     updated: 1773988589
   - id: hekonsek/adr-minikube
     name: ADR (Architecture Decision Record) collection for Minikube
-    updated: 1774277184
+    updated: 1774533399
