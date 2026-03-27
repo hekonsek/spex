@@ -1,12 +1,27 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import type {
-  InitService,
-  InitServiceInput,
-  InitServiceListener,
-  InitServiceResult,
-} from "../../ports/init/init.service.js";
+
+export interface InitServiceInput {
+  cwd?: string;
+  packages?: string[];
+}
+
+export interface InitServiceResult {
+  cwd: string;
+  buildFilePath: string;
+  createdBuildFile: boolean;
+  addedPackages: string[];
+  packages: string[];
+}
+
+export interface InitServiceListener {
+  onInitStarted?(cwd: string): void;
+  onBuildFileCreated?(path: string): void;
+  onBuildFileDetected?(path: string): void;
+  onPackageAdded?(packageId: string, buildFilePath: string): void;
+  onInitFinished?(result: InitServiceResult): void;
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -67,7 +82,7 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-export class DefaultInitService implements InitService {
+export class InitService {
   constructor(private readonly listener: InitServiceListener = {}) {}
 
   async init(input: InitServiceInput = {}): Promise<InitServiceResult> {

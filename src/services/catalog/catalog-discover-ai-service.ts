@@ -1,8 +1,7 @@
 import { execFile } from "node:child_process";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
-import { DefaultInitService } from "../../adapters/init/init-default.service.js";
-import type { InitService, InitServiceListener, InitServiceResult } from "../../ports/init/init.service.js";
+import { InitService, type InitServiceListener, type InitServiceResult } from "../init/InitService.js";
 import {
   CatalogService,
   SpexCatalogError,
@@ -160,7 +159,7 @@ export class CatalogDiscoverAiService {
   ) {
     this.catalogService = dependencies.catalogService ?? new CatalogService();
     this.createInitService =
-      dependencies.createInitService ?? ((initListener) => new DefaultInitService(initListener));
+      dependencies.createInitService ?? ((initListener) => new InitService(initListener));
     this.execFileRunner = dependencies.execFileRunner ?? execFileAsync;
     this.codexExecutable =
       dependencies.codexExecutable ?? process.env.SPEX_CODEX_EXECUTABLE ?? defaultCodexExecutable;

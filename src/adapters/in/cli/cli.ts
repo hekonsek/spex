@@ -5,7 +5,7 @@ import ora, { type Ora } from "ora";
 import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { DefaultInitService } from "../../init/init-default.service.js";
+import { InitService } from "../../../services/init/InitService.js";
 import {
   DefaultValidationService,
   SpexValidationError,
@@ -107,7 +107,7 @@ program
   .action(async (options: { package: string[] }): Promise<void> => {
     const { spinner, dispose } = startInterruptibleSpinner("Initializing Spex project");
 
-    const service = new DefaultInitService({
+    const service = new InitService({
       onInitStarted(cwd: string): void {
         if (!spinner) {
           console.log(chalk.dim(`Initializing Spex project in ${cwd}`));

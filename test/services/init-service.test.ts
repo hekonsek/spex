@@ -4,13 +4,13 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import { parse as parseYaml } from "yaml";
-import { DefaultInitService } from "../../../src/adapters/init/init-default.service.js";
+import { InitService } from "../../src/services/init/InitService.js";
 
 test("init creates an empty .spex/spex.yml file when config is missing", async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-init-empty-"));
 
   try {
-    const service = new DefaultInitService();
+    const service = new InitService();
 
     const result = await service.init({ cwd: projectPath });
 
@@ -34,7 +34,7 @@ test("init appends missing packages without duplicating existing ones", async ()
       "utf8",
     );
 
-    const service = new DefaultInitService();
+    const service = new InitService();
 
     const result = await service.init({
       cwd: projectPath,
