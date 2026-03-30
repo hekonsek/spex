@@ -13,7 +13,7 @@ packages:
     updated: 1773988589
   - id: hekonsek/adr-terraform
     name: ADR (Architecture Decision Record) collection for Terraform
-    updated: 1774845775
+    updated: 1774846190
   - id: hekonsek/adr-minikube
     name: ADR (Architecture Decision Record) collection for Minikube
     updated: 1774533399
