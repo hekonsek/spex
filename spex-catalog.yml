@@ -12,4 +12,5 @@ packages:
   - hekonsek/adr-node-cli
 
   ## Cloud
+  - hekonsek/adr-terraform
   - hekonsek/adr-minikube
