@@ -17,3 +17,6 @@ packages:
   - id: hekonsek/adr-minikube
     name: ADR (Architecture Decision Record) collection for Minikube
     updated: 1774533399
+  - id: hekonsek/adr-kafka
+    name: ADR (Architecture Decision Record) collection for Kafka
+    updated: 1777556689
