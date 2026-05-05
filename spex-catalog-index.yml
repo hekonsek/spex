@@ -19,4 +19,4 @@ packages:
     updated: 1774533399
   - id: hekonsek/adr-kafka
     name: ADR (Architecture Decision Record) collection for Kafka
-    updated: 1777556689
+    updated: 1777896449
