@@ -7,7 +7,7 @@ Spex makes it easy to create, maintain and reuse AI-friendly project specificati
 You can install `spex` using the following command:
 
 ```bash
- npm install -g https://github.com/hekonsek/spex/archive/refs/tags/v0.32.0.tar.gz
+ npm install -g https://github.com/hekonsek/spex/archive/refs/tags/v0.34.0.tar.gz
 ```
 
 ## Project specification
