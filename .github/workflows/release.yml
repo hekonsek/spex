@@ -54,15 +54,7 @@ jobs:
         run: git push --follow-tags
 
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "NPM_TOKEN secret is required to publish to npm." >&2
-            exit 1
-          fi
-
-          npm publish "${{ steps.pack.outputs.package_file }}" --access public --provenance
+        run: npm publish "${{ steps.pack.outputs.package_file }}" --access public
 
       - name: Create GitHub release
         env:
