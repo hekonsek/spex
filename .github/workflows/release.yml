@@ -40,7 +40,7 @@ jobs:
         run: |
           version="${{ steps.version.outputs.tag }}"
           version="${version#v}"
-          perl -0pi -e "s#(github\.com/hekonsek/spex/archive/refs/tags/v)\d+\.\d+\.\d+(\.tar\.gz)#\${1}$version\${2}#g" README.md
+          perl -0pi -e "s#(github\.com/hekonsek/spex/releases/download/v)\d+\.\d+\.\d+(/spex-)\d+\.\d+\.\d+(\.tgz)#\${1}$version\${2}$version\${3}#g" README.md
           git add README.md
           git diff --cached --quiet || git commit -m "Update README version to ${{ steps.version.outputs.tag }}"
 
