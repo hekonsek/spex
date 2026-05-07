@@ -24,9 +24,6 @@ jobs:
           cache: npm
           registry-url: "https://registry.npmjs.org"
 
-      - name: Setup npm # NPM OIDC requires npm@11
-        run: npm install -g npm@11
-
       - name: Install dependencies
         run: npm ci
 
@@ -57,7 +54,7 @@ jobs:
         run: git push --follow-tags
 
       - name: Publish to npm
-        run: npm publish "${{ steps.pack.outputs.package_file }}" --access public
+        run: npx --yes npm@11 publish "${{ steps.pack.outputs.package_file }}" --access public
 
       - name: Create GitHub release
         env:
