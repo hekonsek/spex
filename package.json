@@ -1,9 +1,26 @@
 {
-  "name": "spex",
+  "name": "@hekonsek/spex",
   "version": "0.35.0",
   "description": "AI-friendly projects specifications",
   "license": "MIT",
   "type": "module",
+  "homepage": "https://github.com/hekonsek/spex#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hekonsek/spex.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hekonsek/spex/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist/",
+    "spex/",
+    "spex-catalog.yml",
+    "spex-catalog-index.yml"
+  ],
   "bin": {
     "spex": "dist/adapters/in/cli/cli.js"
   },
@@ -13,7 +30,7 @@
     "test": "node --import tsx --test $(find test -name '*.test.ts' -print)",
     "start": "node dist/adapters/in/cli/cli.js",
     "dev": "npm run build && npm run start --",
-    "install-latest": "npm install -g https://github.com/hekonsek/spex/releases/download/v${npm_package_version}/spex-${npm_package_version}.tgz"
+    "install-latest": "npm install -g @hekonsek/spex"
   },
   "engines": {
     "node": ">=22.0.0"

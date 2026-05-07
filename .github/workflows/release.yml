@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -21,6 +22,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: npm ci
@@ -36,16 +38,11 @@ jobs:
           npm version minor
           echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
 
-      - name: Update README version
-        run: |
-          version="${{ steps.version.outputs.tag }}"
-          version="${version#v}"
-          perl -0pi -e "s#(github\.com/hekonsek/spex/releases/download/v)\d+\.\d+\.\d+(/spex-)\d+\.\d+\.\d+(\.tgz)#\${1}$version\${2}$version\${3}#g" README.md
-          git add README.md
-          git diff --cached --quiet || git commit -m "Update README version to ${{ steps.version.outputs.tag }}"
-
       - name: Build
         run: npm run build
+
+      - name: Run tests
+        run: npm test
 
       - name: Pack npm artifact
         id: pack
@@ -55,6 +52,17 @@ jobs:
 
       - name: Push version commit and tag
         run: git push --follow-tags
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "NPM_TOKEN secret is required to publish to npm." >&2
+            exit 1
+          fi
+
+          npm publish "${{ steps.pack.outputs.package_file }}" --access public --provenance
 
       - name: Create GitHub release
         env:
