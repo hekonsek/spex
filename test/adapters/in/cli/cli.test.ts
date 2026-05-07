@@ -299,6 +299,70 @@ test("spex catalog discover-ai initializes project with AI-selected packages", {
   }
 });
 
+test("spex catalog discover-ai logs Codex command at debug level", { concurrency: false }, async () => {
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-catalog-discover-ai-logging-"));
+  const fakeCodexPath = await createFakeCodexExecutable('["acme/node-cli"]\n');
+
+  try {
+    await withBundledCatalogIndex(
+      `packages:
+  - id: acme/node-cli
+    name: Node CLI
+    updated: ${daysAgo(1)}
+`,
+      async (catalogIndexCwd) => {
+        const { stderr, stdout } = await execFileAsync(
+          tsxPath,
+          [
+            ...cliCommand,
+            "--logging",
+            "debug",
+            "catalog",
+            "discover-ai",
+            "--dry-run",
+            "--description",
+            "Node CLI",
+          ],
+          {
+            cwd: projectPath,
+            env: {
+              ...process.env,
+              CI: "1",
+              SPEX_CATALOG_INDEX_CWD: catalogIndexCwd,
+              SPEX_CODEX_EXECUTABLE: fakeCodexPath,
+            },
+            maxBuffer: 10 * 1024 * 1024,
+          },
+        );
+
+        const logEntries = stderr
+          .trim()
+          .split("\n")
+          .filter(Boolean)
+          .map((line) => JSON.parse(line) as Record<string, unknown>);
+        const codexLog = logEntries.find((entry) => entry.msg === "Executing Codex command");
+
+        assert.equal(codexLog?.command, fakeCodexPath);
+        assert.equal(codexLog?.cwd, projectPath);
+        assert.deepEqual((codexLog?.args as string[] | undefined)?.slice(0, 8), [
+          "exec",
+          "--skip-git-repo-check",
+          "-m",
+          "gpt-5.4-mini",
+          "-c",
+          'model_reasoning_effort="low"',
+          "--color",
+          "never",
+        ]);
+        assert.match(stripAnsi(stdout), /OK discover-ai dry run completed \(1 package\(s\) discovered\)/);
+      },
+    );
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+    await rm(dirname(fakeCodexPath), { recursive: true, force: true });
+  }
+});
+
 test("spex catalog discover-ai dry run prints discovered packages without initializing project", { concurrency: false }, async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-cli-catalog-discover-ai-dry-run-"));
   const fakeCodexPath = await createFakeCodexExecutable('["acme/node-cli","acme/kafka"]\n');

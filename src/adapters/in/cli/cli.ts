@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import chalk from "chalk";
-import { Command } from "commander";
+import { Command, InvalidArgumentError } from "commander";
 import ora, { type Ora } from "ora";
+import pino from "pino";
 import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
@@ -22,6 +23,10 @@ import type { SupportedSpexType } from "../../../ports/build/validation.service.
 import { VersionService } from "../../../services/version-service.js";
 import { persistSpinnerText, replaceSpinnerText } from "./spinner-history.js";
 
+const loggingLevels = ["silent", "fatal", "error", "warn", "info", "debug", "trace"] as const;
+type LoggingLevel = (typeof loggingLevels)[number];
+const logger = pino({ level: "silent" }, pino.destination({ dest: 2, sync: true }));
+
 function isInteractive(): boolean {
   return Boolean(process.stdout.isTTY && process.stderr.isTTY && !process.env.CI);
 }
@@ -40,6 +45,18 @@ function collectStringOption(value: string, previous: Set<string>): Set<string> 
   const result = new Set(previous);
   result.add(value);
   return result;
+}
+
+function isLoggingLevel(value: string): value is LoggingLevel {
+  return loggingLevels.includes(value as LoggingLevel);
+}
+
+function parseLoggingLevel(value: string): LoggingLevel {
+  if (isLoggingLevel(value)) {
+    return value;
+  }
+
+  throw new InvalidArgumentError(`expected one of ${loggingLevels.join(", ")}`);
 }
 
 const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -97,6 +114,15 @@ function startInterruptibleSpinner(text: string): { spinner?: Ora; dispose: () =
 const program = new Command();
 program.name("spex");
 program.description("AI-friendly project specifications");
+program.option(
+  "--logging <level>",
+  `Set logging level (${loggingLevels.join(", ")})`,
+  parseLoggingLevel,
+  "silent",
+);
+program.hook("preAction", (): void => {
+  logger.level = program.opts<{ logging: LoggingLevel }>().logging;
+});
 
 program
   .command("version")
@@ -524,87 +550,90 @@ catalogProgram
   .action(async (options: { description?: string; dryRun?: boolean }): Promise<void> => {
     const { spinner, dispose } = startInterruptibleSpinner("Discovering catalog packages with AI");
 
-    const service = new CatalogDiscoverAiService({
-      onAiDiscoveryStarted(projectCwd: string): void {
-        if (!spinner) {
-          console.log(chalk.dim(`Inspecting ${projectCwd}`));
-        }
-      },
-      onCatalogLoaded(catalogPackages): void {
-        if (spinner) {
-          replaceSpinnerText(spinner, `Loaded ${catalogPackages.length} catalog package(s)`, {
-            persistPrevious: true,
-          });
-          return;
-        }
-
-        console.log(chalk.dim(`Loaded ${catalogPackages.length} catalog package(s)`));
-      },
-      onCodexStarted(): void {
-        if (spinner) {
-          replaceSpinnerText(spinner, "Running Codex discovery", { persistPrevious: true });
-          return;
-        }
-
-        console.log(chalk.dim("Running Codex discovery"));
-      },
-      onPackagesDiscovered(packageIds: string[]): void {
-        if (spinner) {
-          replaceSpinnerText(spinner, `Discovered ${packageIds.length} package(s)`, {
-            persistPrevious: true,
-          });
-          return;
-        }
-
-        const packageSummary = packageIds.length > 0 ? packageIds.join(", ") : "none";
-        console.log(chalk.dim(`AI selected: ${packageSummary}`));
-      },
-      onBuildFileCreated(path: string): void {
-        if (spinner) {
-          replaceSpinnerText(spinner, "Creating .spex/spex.yml", { persistPrevious: true });
-          return;
-        }
-
-        console.log(chalk.dim(`Created ${path}`));
-      },
-      onPackageAdded(packageId: string, buildFilePath: string): void {
-        if (spinner) {
-          replaceSpinnerText(spinner, `Adding ${packageId}`, { persistPrevious: true });
-          return;
-        }
-
-        console.log(chalk.dim(`Added ${packageId} to ${buildFilePath}`));
-      },
-      onAiDiscoveryFinished(result): void {
-        const message = result.dryRun
-          ? `OK discover-ai dry run completed (${result.discoveredPackages.length} package(s) discovered)`
-          : (() => {
-              const initResult = result.initResult;
-              const buildFileStatus = initResult?.createdBuildFile ? "config created" : "config ready";
-              const addedPackageCount = initResult?.addedPackages.length ?? 0;
-              return (
-                `OK discover-ai completed (${result.discoveredPackages.length} package(s) discovered, ` +
-                `${addedPackageCount} package(s) added, ${buildFileStatus})`
-              );
-            })();
-
-        if (spinner) {
-          replaceSpinnerText(spinner, message, { persistPrevious: true });
-          persistSpinnerText(spinner);
-        } else {
-          console.log(chalk.green(message));
-        }
-
-        if (result.dryRun) {
-          const packageSummary = result.discoveredPackages.length > 0
-            ? result.discoveredPackages
-            : ["<none>"];
-          for (const packageId of packageSummary) {
-            console.log(packageId);
+    const service = new CatalogDiscoverAiService(
+      {
+        onAiDiscoveryStarted(projectCwd: string): void {
+          if (!spinner) {
+            console.log(chalk.dim(`Inspecting ${projectCwd}`));
           }
-        }
+        },
+        onCatalogLoaded(catalogPackages): void {
+          if (spinner) {
+            replaceSpinnerText(spinner, `Loaded ${catalogPackages.length} catalog package(s)`, {
+              persistPrevious: true,
+            });
+            return;
+          }
+
+          console.log(chalk.dim(`Loaded ${catalogPackages.length} catalog package(s)`));
+        },
+        onCodexStarted(): void {
+          if (spinner) {
+            replaceSpinnerText(spinner, "Running Codex discovery", { persistPrevious: true });
+            return;
+          }
+
+          console.log(chalk.dim("Running Codex discovery"));
+        },
+        onPackagesDiscovered(packageIds: string[]): void {
+          if (spinner) {
+            replaceSpinnerText(spinner, `Discovered ${packageIds.length} package(s)`, {
+              persistPrevious: true,
+            });
+            return;
+          }
+
+          const packageSummary = packageIds.length > 0 ? packageIds.join(", ") : "none";
+          console.log(chalk.dim(`AI selected: ${packageSummary}`));
+        },
+        onBuildFileCreated(path: string): void {
+          if (spinner) {
+            replaceSpinnerText(spinner, "Creating .spex/spex.yml", { persistPrevious: true });
+            return;
+          }
+
+          console.log(chalk.dim(`Created ${path}`));
+        },
+        onPackageAdded(packageId: string, buildFilePath: string): void {
+          if (spinner) {
+            replaceSpinnerText(spinner, `Adding ${packageId}`, { persistPrevious: true });
+            return;
+          }
+
+          console.log(chalk.dim(`Added ${packageId} to ${buildFilePath}`));
+        },
+        onAiDiscoveryFinished(result): void {
+          const message = result.dryRun
+            ? `OK discover-ai dry run completed (${result.discoveredPackages.length} package(s) discovered)`
+            : (() => {
+                const initResult = result.initResult;
+                const buildFileStatus = initResult?.createdBuildFile ? "config created" : "config ready";
+                const addedPackageCount = initResult?.addedPackages.length ?? 0;
+                return (
+                  `OK discover-ai completed (${result.discoveredPackages.length} package(s) discovered, ` +
+                  `${addedPackageCount} package(s) added, ${buildFileStatus})`
+                );
+              })();
+
+          if (spinner) {
+            replaceSpinnerText(spinner, message, { persistPrevious: true });
+            persistSpinnerText(spinner);
+          } else {
+            console.log(chalk.green(message));
+          }
+
+          if (result.dryRun) {
+            const packageSummary = result.discoveredPackages.length > 0
+              ? result.discoveredPackages
+              : ["<none>"];
+            for (const packageId of packageSummary) {
+              console.log(packageId);
+            }
+          }
+        },
       },
-    });
+      { logger },
+    );
 
     try {
       const discoverInput = {

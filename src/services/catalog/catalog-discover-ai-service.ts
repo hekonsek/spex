@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
+import type pino from "pino";
 import { InitService, type InitServiceListener, type InitServiceResult } from "../init/InitService.js";
 import {
   CatalogService,
@@ -59,6 +60,7 @@ interface CatalogDiscoverAiServiceDependencies {
   createInitService?: (listener: InitServiceListener) => InitService;
   execFileRunner?: ExecFileRunner;
   codexExecutable?: string;
+  logger?: pino.Logger;
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -152,6 +154,7 @@ export class CatalogDiscoverAiService {
   private readonly createInitService: (listener: InitServiceListener) => InitService;
   private readonly execFileRunner: ExecFileRunner;
   private readonly codexExecutable: string;
+  private readonly logger: pino.Logger | undefined;
 
   constructor(
     private readonly listener: CatalogDiscoverAiServiceListener = {},
@@ -163,6 +166,7 @@ export class CatalogDiscoverAiService {
     this.execFileRunner = dependencies.execFileRunner ?? execFileAsync;
     this.codexExecutable =
       dependencies.codexExecutable ?? process.env.SPEX_CODEX_EXECUTABLE ?? defaultCodexExecutable;
+    this.logger = dependencies.logger;
   }
 
   async discover(input: CatalogDiscoverAiInput = {}): Promise<CatalogDiscoverAiResult> {
@@ -189,6 +193,10 @@ export class CatalogDiscoverAiService {
       prompt,
     ];
 
+    this.logger?.debug(
+      { command: this.codexExecutable, args: codexArgs, cwd: projectCwd },
+      "Executing Codex command",
+    );
     this.listener.onCodexStarted?.(this.codexExecutable, codexArgs, projectCwd);
 
     let commandOutput: ExecFileResult;
