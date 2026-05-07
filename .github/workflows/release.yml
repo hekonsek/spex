@@ -36,6 +36,14 @@ jobs:
           npm version minor
           echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
 
+      - name: Update README version
+        run: |
+          version="${{ steps.version.outputs.tag }}"
+          version="${version#v}"
+          perl -0pi -e "s#(github\.com/hekonsek/spex/archive/refs/tags/v)\d+\.\d+\.\d+(\.tar\.gz)#\${1}$version\${2}#g" README.md
+          git add README.md
+          git diff --cached --quiet || git commit -m "Update README version to ${{ steps.version.outputs.tag }}"
+
       - name: Build
         run: npm run build
 
