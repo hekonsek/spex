@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -127,6 +127,54 @@ test("discover-ai dry run returns discovered packages without initializing proje
     assert.equal(await pathExists(resolve(projectPath, ".spex", "spex.yml")), false);
   } finally {
     await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test("discover-ai closes Codex stdin while passing prompt as an argument", async () => {
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-discover-ai-stdin-"));
+  const fakeCodexDirectoryPath = await mkdtemp(resolve(tmpdir(), "spex-fake-codex-"));
+  const fakeCodexPath = resolve(fakeCodexDirectoryPath, "codex");
+
+  await writeFile(
+    fakeCodexPath,
+    `#!/usr/bin/env node
+process.stdin.resume();
+process.stdin.on("end", () => {
+  process.stdout.write('["acme/node-cli"]\\n');
+});
+`,
+    "utf8",
+  );
+  await chmod(fakeCodexPath, 0o755);
+
+  try {
+    const service = new CatalogDiscoverAiService(
+      {},
+      {
+        catalogService: {
+          async list() {
+            return {
+              cwd: "/catalog",
+              indexFilePath: "/catalog/spex-catalog-index.yml",
+              packages: [catalogPackage("acme/node-cli", "Node CLI")],
+            };
+          },
+        },
+        codexExecutable: fakeCodexPath,
+        codexTimeoutMs: 1_000,
+      },
+    );
+
+    const result = await service.discover({
+      projectCwd: projectPath,
+      catalogIndexCwd: "/catalog",
+      dryRun: true,
+    });
+
+    assert.deepEqual(result.discoveredPackages, ["acme/node-cli"]);
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+    await rm(fakeCodexDirectoryPath, { recursive: true, force: true });
   }
 });
 
