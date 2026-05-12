@@ -5,7 +5,8 @@ packages:
   # ADRs
 
   ## ADR metadata
-  - hekonsek/syllaibus 
+  - hekonsek/syllaibus
+  - hekonsek/dataformat-adr 
   
   ## Node
   - hekonsek/adr-node
