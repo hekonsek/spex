@@ -1,7 +1,11 @@
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import type pino from "pino";
-import { InitService, type InitServiceListener, type InitServiceResult } from "../init/InitService.js";
+import {
+  BuildService,
+  type BuildServiceInitResult,
+  type BuildServiceListener,
+} from "../build/build-service.js";
 import {
   CatalogService,
   SpexCatalogError,
@@ -30,7 +34,7 @@ export interface CatalogDiscoverAiResult {
   buildFilePath: string;
   catalogPackages: string[];
   discoveredPackages: string[];
-  initResult?: InitServiceResult;
+  initResult?: BuildServiceInitResult;
 }
 
 export interface CatalogDiscoverAiServiceListener {
@@ -56,7 +60,7 @@ type ExecFileRunner = (
 
 interface CatalogDiscoverAiServiceDependencies {
   catalogService?: Pick<CatalogService, "list">;
-  createInitService?: (listener: InitServiceListener) => InitService;
+  createBuildService?: (listener: BuildServiceListener) => Pick<BuildService, "init">;
   execFileRunner?: ExecFileRunner;
   codexExecutable?: string;
   codexTimeoutMs?: number;
@@ -281,7 +285,7 @@ function runCommand(
 
 export class CatalogDiscoverAiService {
   private readonly catalogService: Pick<CatalogService, "list">;
-  private readonly createInitService: (listener: InitServiceListener) => InitService;
+  private readonly createBuildService: (listener: BuildServiceListener) => Pick<BuildService, "init">;
   private readonly execFileRunner: ExecFileRunner;
   private readonly codexExecutable: string;
   private readonly codexTimeoutMs: number;
@@ -292,8 +296,8 @@ export class CatalogDiscoverAiService {
     dependencies: CatalogDiscoverAiServiceDependencies = {},
   ) {
     this.catalogService = dependencies.catalogService ?? new CatalogService();
-    this.createInitService =
-      dependencies.createInitService ?? ((initListener) => new InitService(initListener));
+    this.createBuildService =
+      dependencies.createBuildService ?? ((buildListener) => new BuildService(buildListener));
     this.execFileRunner = dependencies.execFileRunner ?? runCommand;
     this.codexExecutable =
       dependencies.codexExecutable ?? process.env.SPEX_CODEX_EXECUTABLE ?? defaultCodexExecutable;
@@ -356,9 +360,9 @@ export class CatalogDiscoverAiService {
     const discoveredPackages = parseDiscoveredPackages(commandOutput.stdout, catalogPackages);
     this.listener.onPackagesDiscovered?.(discoveredPackages);
 
-    let initResult: InitServiceResult | undefined;
+    let initResult: BuildServiceInitResult | undefined;
     if (!dryRun) {
-      const initService = this.createInitService({
+      const buildService = this.createBuildService({
         onBuildFileCreated: (path: string): void => {
           this.listener.onBuildFileCreated?.(path);
         },
@@ -366,7 +370,7 @@ export class CatalogDiscoverAiService {
           this.listener.onPackageAdded?.(packageId, buildFilePath);
         },
       });
-      initResult = await initService.init({
+      initResult = await buildService.init({
         cwd: projectCwd,
         packages: new Set(discoveredPackages),
       });

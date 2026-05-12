@@ -6,7 +6,6 @@ import pino from "pino";
 import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { InitService } from "../../../services/init/InitService.js";
 import {
   DefaultValidationService,
   SpexValidationError,
@@ -139,7 +138,7 @@ program
   .action(async (options: { package: Set<string> }): Promise<void> => {
     const { spinner, dispose } = startInterruptibleSpinner("Initializing Spex project");
 
-    const service = new InitService({
+    const service = new BuildService({
       onInitStarted(cwd: string): void {
         if (!spinner) {
           console.log(chalk.dim(`Initializing Spex project in ${cwd}`));

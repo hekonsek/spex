@@ -24,6 +24,11 @@ export interface BuildServiceInput {
   cwd?: string;
 }
 
+export interface BuildServiceInitInput {
+  cwd?: string;
+  packages?: Set<string>;
+}
+
 export interface ImportedSpexPackage {
   packageId: string;
   sourceUrl: string;
@@ -43,16 +48,28 @@ export interface BuildServiceResult {
   removedPackages: RemovedSpexPackage[];
 }
 
+export interface BuildServiceInitResult {
+  cwd: string;
+  buildFilePath: string;
+  createdBuildFile: boolean;
+  addedPackages: string[];
+  packages: Set<string>;
+}
+
 export interface BuildServiceListener {
+  onInitStarted?(cwd: string): void;
+  onBuildFileCreated?(path: string): void;
   onBuildStarted?(cwd: string): void;
   onAgentsFileWritten?(path: string): void;
   onBuildFileDetected?(path: string): void;
   onBuildFileMissing?(path: string): void;
+  onPackageAdded?(packageId: string, buildFilePath: string): void;
   onBuildPackagesResolved?(packageIds: string[]): void;
   onPackageImportStarted?(packageId: string, sourceUrl: string, targetPath: string): void;
   onPackageImported?(importedPackage: ImportedSpexPackage): void;
   onStalePackageRemovalStarted?(removedPackage: RemovedSpexPackage): void;
   onStalePackageRemoved?(removedPackage: RemovedSpexPackage): void;
+  onInitFinished?(result: BuildServiceInitResult): void;
   onBuildFinished?(result: BuildServiceResult): void;
 }
 
@@ -542,6 +559,55 @@ async function removeImportedPackage(
 
 export class BuildService {
   constructor(private readonly listener: BuildServiceListener = {}) {}
+
+  async init(input: BuildServiceInitInput = {}): Promise<BuildServiceInitResult> {
+    const cwd = input.cwd ?? process.cwd();
+    const buildFileDirectoryPath = resolve(cwd, ".spex");
+
+    this.listener.onInitStarted?.(cwd);
+
+    const buildConfigResult = await this.readBuildConfig({ cwd });
+    const buildFilePath = buildConfigResult.buildFilePath;
+    const config = buildConfigResult.config;
+    const packages = new Set(config.packages);
+    const createdBuildFile = !buildConfigResult.exists;
+
+    if (buildConfigResult.exists) {
+      this.listener.onBuildFileDetected?.(buildFilePath);
+    } else {
+      await mkdir(buildFileDirectoryPath, { recursive: true });
+      this.listener.onBuildFileCreated?.(buildFilePath);
+      await writeFile(buildFilePath, "", "utf8");
+    }
+
+    const addedPackages: string[] = [];
+    for (const packageId of input.packages ?? []) {
+      if (packages.has(packageId)) {
+        continue;
+      }
+
+      packages.add(packageId);
+      addedPackages.push(packageId);
+      this.listener.onPackageAdded?.(packageId, buildFilePath);
+    }
+
+    if (addedPackages.length > 0) {
+      config.packages = [...packages];
+      await this.writeBuildConfig(config, { cwd });
+    }
+
+    const result: BuildServiceInitResult = {
+      cwd,
+      buildFilePath,
+      createdBuildFile,
+      addedPackages,
+      packages,
+    };
+
+    this.listener.onInitFinished?.(result);
+
+    return result;
+  }
 
   async readBuildConfig(input: ReadBuildConfigInput = {}): Promise<ReadBuildConfigResult> {
     const cwd = input.cwd ?? process.cwd();

@@ -107,7 +107,7 @@ test("discover-ai dry run returns discovered packages without initializing proje
           stdout: '["acme/node-cli"]\n',
           stderr: "",
         }),
-        createInitService: () => {
+        createBuildService: () => {
           initServiceCreated = true;
           throw new Error("init should not be called during dry run");
         },
