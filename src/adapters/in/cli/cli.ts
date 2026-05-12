@@ -20,7 +20,7 @@ import {
 } from "../../../services/catalog/catalog-service.js";
 import { CatalogDiscoverAiService } from "../../../services/catalog/catalog-discover-ai-service.js";
 import type { SupportedSpexType } from "../../../ports/build/validation.service.js";
-import { VersionService } from "../../../services/version-service.js";
+import { VersionService } from "../../../services/version/version-service.js";
 import { persistSpinnerText, replaceSpinnerText } from "./spinner-history.js";
 
 const loggingLevels = ["silent", "fatal", "error", "warn", "info", "debug", "trace"] as const;
