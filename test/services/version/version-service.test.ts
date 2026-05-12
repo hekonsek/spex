@@ -9,7 +9,7 @@ test("VersionService reads version from the current package", async () => {
   const service = new VersionService()
 
   // When
-  const version = await service.currentPackageVersion()
+  const version = service.currentPackageVersion()
 
   // Then
   assert.equal(version, packageVersion)

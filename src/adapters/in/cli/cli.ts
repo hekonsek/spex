@@ -128,7 +128,7 @@ program
   .command("version")
   .description("Print current project version")
   .action(async (): Promise<void> => {
-    const version = await new VersionService().currentPackageVersion()
+    const version = new VersionService().currentPackageVersion()
     console.log(version)
   });
 
