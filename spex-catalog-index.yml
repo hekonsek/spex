@@ -5,6 +5,9 @@ packages:
   - id: hekonsek/syllaibus
     name: "Syllaibus: Syllabus for AI"
     updated: 1774522018
+  - id: hekonsek/dataformat-adr
+    name: dataformat-adr
+    updated: 1778582629
   - id: hekonsek/adr-node
     name: ADR (Architecture Decision Record) collection for Node
     updated: 1777989148
