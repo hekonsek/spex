@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
-import { DefaultValidationService } from "../../../src/adapters/build/validation-default.service.js";
+import { ValidationService } from "../../../src/services/validation/validation-service.js";
 
 test("should pass validation", async () => {
   // Given
@@ -15,8 +15,8 @@ test("should pass validation", async () => {
   await mkdir(adrPath, { recursive: true });
   await writeFile(resolve(adrPath, "adr_0001.md"), "# ADR 0001\n");
 
-  const service = new DefaultValidationService();
-  
+  const service = new ValidationService();
+
   // When
   const result = await service.validate({ path });
 

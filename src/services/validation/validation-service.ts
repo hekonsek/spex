@@ -1,19 +1,26 @@
 import { readdir, stat } from "node:fs/promises";
 import { resolve } from "node:path";
-import type {
-  SupportedSpexType,
-  ValidateServiceResult,
-  ValidatedType,
-  ValidationService,
-  ValidationOptions,
-  ValidationServiceListener,
-} from "../../ports/build/validation.service.js";
 
-export type {
-  SupportedSpexType,
-  ValidateServiceResult,
-  ValidatedType,
-} from "../../ports/build/validation.service.js";
+export interface ValidationOptions {
+  path?: string;
+}
+
+export interface ValidationServiceListener {
+  onValidationStarted?(path: string): void;
+  onTypeDirectoryValidated?(type: SupportedSpexType, markdownFileCount: number): void;
+}
+
+export type SupportedSpexType = "adr" | "instruction" | "dataformat" | "feature";
+
+export interface ValidatedType {
+  type: SupportedSpexType;
+  path: string;
+}
+
+export interface ValidateServiceResult {
+  spexPath: string;
+  validatedTypes: ValidatedType[];
+}
 
 export const supportedSpexTypes = ["adr", "instruction", "dataformat", "feature"] as const;
 
@@ -37,7 +44,7 @@ async function directoryExists(path: string): Promise<boolean> {
   }
 }
 
-export class DefaultValidationService implements ValidationService {
+export class ValidationService {
   constructor(private readonly listener: ValidationServiceListener = {}) {}
 
   async validate(validationOptions: ValidationOptions = {}): Promise<ValidateServiceResult> {

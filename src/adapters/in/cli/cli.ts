@@ -6,10 +6,6 @@ import pino from "pino";
 import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import {
-  DefaultValidationService,
-  SpexValidationError,
-} from "../../build/validation-default.service.js";
 import { BuildService } from "../../../services/build/build-service.js";
 import {
   CatalogService,
@@ -18,7 +14,11 @@ import {
   type CatalogListSortOrder,
 } from "../../../services/catalog/catalog-service.js";
 import { CatalogDiscoverAiService } from "../../../services/catalog/catalog-discover-ai-service.js";
-import type { SupportedSpexType } from "../../../ports/build/validation.service.js";
+import {
+  SpexValidationError,
+  ValidationService,
+  type SupportedSpexType,
+} from "../../../services/validation/validation-service.js";
 import { VersionService } from "../../../services/version/version-service.js";
 import { persistSpinnerText, replaceSpinnerText } from "./spinner-history.js";
 
@@ -290,7 +290,7 @@ validateProgram
   .action(async (): Promise<void> => {
     const { spinner, dispose } = startInterruptibleSpinner("Validating spex structure");
 
-    const service = new DefaultValidationService({
+    const service = new ValidationService({
       onValidationStarted(cwd: string): void {
         if (!spinner) {
           console.log(chalk.dim(`Checking ${cwd}`));
