@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { BuildService } from "../build/build-service.js";
 
-export interface InitServiceOptions {
+export interface InitOptions {
   cwd?: string;
   packages?: Set<string>;
 }
@@ -23,31 +23,14 @@ export interface InitServiceListener {
   onInitFinished?(result: InitServiceResult): void;
 }
 
-function uniqueStrings(values: string[]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-
-  for (const value of values) {
-    if (seen.has(value)) {
-      continue;
-    }
-
-    seen.add(value);
-    result.push(value);
-  }
-
-  return result;
-}
-
 export class InitService {
   constructor(
     private readonly listener: InitServiceListener = {},
     private readonly buildService: BuildService = new BuildService(),
   ) {}
 
-  async init(input: InitServiceOptions = {}): Promise<InitServiceResult> {
-    const cwd = input.cwd ?? process.cwd();
-    const requestedPackages = uniqueStrings([...input.packages ?? new Set<string>()].map((item) => item.trim()).filter(Boolean));
+  async init(options: InitOptions = {}): Promise<InitServiceResult> {
+    const cwd = options.cwd ?? process.cwd();
     const buildFileDirectoryPath = resolve(cwd, ".spex");
 
     this.listener.onInitStarted?.(cwd);
@@ -67,7 +50,7 @@ export class InitService {
     }
 
     const addedPackages: string[] = [];
-    for (const packageId of requestedPackages) {
+    for (const packageId of options.packages ?? []) {
       if (packages.has(packageId)) {
         continue;
       }
