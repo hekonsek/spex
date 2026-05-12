@@ -311,6 +311,44 @@ test("build refreshes imported packages and removes stale package directories", 
   }
 });
 
+test("build reports missing package spex directory", { concurrency: false }, async () => {
+  const projectPath = await mkdtemp(resolve(tmpdir(), "spex-build-missing-package-spex-"));
+  const homePath = await mkdtemp(resolve(tmpdir(), "spex-build-missing-package-spex-home-"));
+  const repositoriesRootPath = await mkdtemp(resolve(tmpdir(), "spex-build-missing-package-spex-repositories-"));
+  const previousHome = process.env.HOME;
+
+  try {
+    process.env.HOME = homePath;
+    await configureGitHome(homePath, repositoriesRootPath);
+
+    const packageRepository = await createPackageRepository(repositoriesRootPath, "acme", "pkg", {
+      "README.md": "# Package without Spex directory\n",
+    });
+
+    await writeProjectFixture(projectPath, [packageRepository.packageId]);
+
+    const service = new BuildService();
+
+    await assert.rejects(
+      () => service.build({ cwd: projectPath }),
+      (error: unknown): boolean =>
+        error instanceof Error &&
+        error.message.includes(`Failed to import package from https://${packageRepository.packageId}.git.`) &&
+        error.message.includes(`Missing spex directory in downloaded package: https://${packageRepository.packageId}.git`),
+    );
+  } finally {
+    if (previousHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = previousHome;
+    }
+
+    await rm(projectPath, { recursive: true, force: true });
+    await rm(homePath, { recursive: true, force: true });
+    await rm(repositoriesRootPath, { recursive: true, force: true });
+  }
+});
+
 test("readBuildConfig returns parsed config and preserves unknown sections", async () => {
   const projectPath = await mkdtemp(resolve(tmpdir(), "spex-build-config-read-"));
 

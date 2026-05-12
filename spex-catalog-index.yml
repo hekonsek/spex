@@ -10,7 +10,7 @@ packages:
     updated: 1778584128
   - id: hekonsek/adr-node
     name: ADR (Architecture Decision Record) collection for Node
-    updated: 1777989148
+    updated: 1778589385
   - id: hekonsek/adr-node-cli
     name: ADR (Architecture Decision Record) collection for Node CLI
     updated: 1773988589

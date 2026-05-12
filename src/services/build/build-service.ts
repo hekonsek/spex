@@ -450,7 +450,7 @@ async function clonePackageToPath(
     });
 
     if (!(await pathExists(clonedSpexPath))) {
-      throw new Error(`Missing spex directory in downloaded package: ${cloneUrl}`);
+      throw new Error(`Missing spex directory in downloaded package: ${sourceLabel}`);
     }
 
     const exportIgnorePatterns = await readExportIgnorePatterns(clonedBuildFilePath);
@@ -460,7 +460,9 @@ async function clonePackageToPath(
     await copyPackageSpexDirectory(clonedSpexPath, targetPath, exportIgnorePatterns);
   } catch (error: unknown) {
     const typedError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
-    const details = [typedError.stderr, typedError.stdout].filter(Boolean).join("\n").trim();
+    const commandOutputDetails = [typedError.stderr, typedError.stdout].filter(Boolean).join("\n").trim();
+    const errorMessage = error instanceof Error ? error.message.trim() : "";
+    const details = commandOutputDetails || errorMessage;
     const suffix = details ? ` ${details}` : "";
     throw new Error(`Failed to import package from ${sourceLabel}.${suffix}`.trim());
   } finally {
