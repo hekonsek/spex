@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import { parse as parseYaml } from "yaml";
-import { InitService } from "../../src/services/init/InitService.js";
+import { InitService } from "../../../src/services/init/InitService.js";
 
 test("init should create an empty .spex/spex.yml file when config is missing", async () => {
   // Given
