@@ -1,20 +1,18 @@
 packages:
   # Tools
   - hekonsek/scriptz
-  
-  # ADRs
-
-  ## ADR metadata
   - hekonsek/syllaibus
   - hekonsek/dataformat-adr 
+
+  # Languages
   
   ## Node
   - hekonsek/adr-node
   - hekonsek/adr-node-cli
 
-  ## Cloud
+  # Cloud
   - hekonsek/adr-terraform
   - hekonsek/adr-minikube
 
-  ## Data
+  # Data
   - hekonsek/adr-kafka
