@@ -10,10 +10,10 @@ packages:
     updated: 1778590290
   - id: hekonsek/adr-node
     name: ADR (Architecture Decision Record) collection for Node
-    updated: 1778590892
+    updated: 1778656175
   - id: hekonsek/adr-node-cli
     name: ADR (Architecture Decision Record) collection for Node CLI
-    updated: 1773988589
+    updated: 1778656973
   - id: hekonsek/adr-terraform
     name: ADR (Architecture Decision Record) collection for Terraform
     updated: 1774846190
