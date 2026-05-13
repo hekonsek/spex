@@ -1,7 +1,7 @@
 packages:
   # Tools
   - hekonsek/scriptz
-  - hekonsek/syllaibus
+  - hekonsek/dataformat-syllaibus
   - hekonsek/dataformat-adr 
 
   # Languages
