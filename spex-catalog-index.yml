@@ -7,10 +7,10 @@ packages:
     updated: 1774522018
   - id: hekonsek/dataformat-adr
     name: "Data format: ADR (Architecture Decision Record) project"
-    updated: 1778584128
+    updated: 1778590290
   - id: hekonsek/adr-node
     name: ADR (Architecture Decision Record) collection for Node
-    updated: 1778589385
+    updated: 1778590892
   - id: hekonsek/adr-node-cli
     name: ADR (Architecture Decision Record) collection for Node CLI
     updated: 1773988589
