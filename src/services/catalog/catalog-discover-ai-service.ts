@@ -307,12 +307,15 @@ export class CatalogDiscoverAiService {
 
   async discover(input: CatalogDiscoverAiInput = {}): Promise<CatalogDiscoverAiResult> {
     const projectCwd = input.projectCwd ?? process.cwd();
-    const catalogIndexCwd = input.catalogIndexCwd ?? process.cwd();
     const dryRun = input.dryRun ?? false;
 
     this.listener.onAiDiscoveryStarted?.(projectCwd);
 
-    const catalogResult: CatalogListResult = await this.catalogService.list({ cwd: catalogIndexCwd, sort: "id" });
+    const catalogResult: CatalogListResult = await this.catalogService.list({
+      ...(input.catalogIndexCwd === undefined ? {} : { cwd: input.catalogIndexCwd }),
+      sort: "id",
+    });
+    const catalogIndexCwd = catalogResult.cwd;
     const catalogPackages = catalogResult.packages.map((catalogPackage) => catalogPackage.id);
     this.listener.onCatalogLoaded?.(catalogResult.packages);
 

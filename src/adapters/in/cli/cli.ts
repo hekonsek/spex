@@ -3,9 +3,7 @@ import chalk from "chalk";
 import { Command, InvalidArgumentError } from "commander";
 import ora, { type Ora } from "ora";
 import pino from "pino";
-import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { fileURLToPath } from "node:url";
 import { BuildService } from "../../../services/build/build-service.js";
 import {
   CatalogService,
@@ -30,14 +28,8 @@ function isInteractive(): boolean {
   return Boolean(process.stdout.isTTY && process.stderr.isTTY && !process.env.CI);
 }
 
-function resolvePackageRootPath(): string {
-  const cliFilePath = fileURLToPath(import.meta.url);
-  const cliDirectoryPath = dirname(cliFilePath);
-  return resolve(cliDirectoryPath, "..", "..", "..", "..");
-}
-
-function resolveBundledCatalogIndexCwd(): string {
-  return process.env.SPEX_CATALOG_INDEX_CWD?.trim() || resolvePackageRootPath();
+function resolveCatalogIndexCwdOverride(): string | undefined {
+  return process.env.SPEX_CATALOG_INDEX_CWD?.trim() || undefined;
 }
 
 function collectStringOption(value: string, previous: Set<string>): Set<string> {
@@ -417,7 +409,7 @@ catalogProgram
 
 catalogProgram
   .command("list")
-  .description("List packages from bundled spex-catalog-index.yml")
+  .description("List packages from the default Spex catalog index")
   .option("--sort <property>", "Sort by id, name or updated", "id")
   .option("--sort-order <order>", "Sort order: asc or desc", "asc")
   .action(async (options: { sort: string; sortOrder: string }): Promise<void> => {
@@ -439,8 +431,9 @@ catalogProgram
     const service = new CatalogService();
 
     try {
+      const catalogIndexCwd = resolveCatalogIndexCwdOverride();
       const result = await service.list({
-        cwd: resolveBundledCatalogIndexCwd(),
+        ...(catalogIndexCwd === undefined ? {} : { cwd: catalogIndexCwd }),
         sort: options.sort as CatalogListSort,
         sortOrder: options.sortOrder as CatalogListSortOrder,
       });
@@ -475,9 +468,10 @@ catalogProgram
     });
 
     try {
+      const catalogIndexCwd = resolveCatalogIndexCwdOverride();
       let state = await service.discover({
         projectCwd: process.cwd(),
-        catalogIndexCwd: resolveBundledCatalogIndexCwd(),
+        ...(catalogIndexCwd === undefined ? {} : { catalogIndexCwd }),
       });
 
       const readline = createInterface({
@@ -519,7 +513,7 @@ catalogProgram
 
           state = await service.addPackage({
             projectCwd: process.cwd(),
-            catalogIndexCwd: resolveBundledCatalogIndexCwd(),
+            ...(catalogIndexCwd === undefined ? {} : { catalogIndexCwd }),
             packageId: selectedPackage.id,
           });
         }
@@ -635,9 +629,10 @@ catalogProgram
     );
 
     try {
+      const catalogIndexCwd = resolveCatalogIndexCwdOverride();
       const discoverInput = {
         projectCwd: process.cwd(),
-        catalogIndexCwd: resolveBundledCatalogIndexCwd(),
+        ...(catalogIndexCwd === undefined ? {} : { catalogIndexCwd }),
         dryRun: options.dryRun ?? false,
         ...(options.description === undefined ? {} : { description: options.description }),
       };

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -8,7 +8,9 @@ import test from "node:test";
 import { parse as parseYaml } from "yaml";
 import {
   CatalogService,
+  catalogIndexCacheTtlMs,
   catalogIndexFileName,
+  catalogIndexUrl,
   catalogSpecificationFileName,
 } from "../../src/services/catalog/catalog-service.js";
 
@@ -66,6 +68,17 @@ async function createPackageRepository(
   await runGit(["symbolic-ref", "HEAD", "refs/heads/main"], barePath);
 
   return `${gitTestHost}/${namespace}/${name}`;
+}
+
+function createCatalogIndexFetchResponse(content: string) {
+  return {
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    async text(): Promise<string> {
+      return content;
+    },
+  };
 }
 
 test("should build catalog", { concurrency: false }, async () => {
@@ -163,5 +176,91 @@ test("should emit package download events", { concurrency: false }, async () => 
     await rm(catalogPath, { recursive: true, force: true });
     await rm(homePath, { recursive: true, force: true });
     await rm(repositoriesRootPath, { recursive: true, force: true });
+  }
+});
+
+test("catalog list downloads and caches default catalog index when cache is missing", async () => {
+  const cachePath = await mkdtemp(resolve(tmpdir(), "spex-catalog-index-cache-"));
+  const catalogIndexContent = `packages:
+  - id: acme/node-cli
+    name: Node CLI
+    updated: 123
+`;
+  const requestedUrls: string[] = [];
+
+  try {
+    const service = new CatalogService({}, undefined, {
+      catalogIndexCacheDirectoryPath: cachePath,
+      fetch: async (url: string) => {
+        requestedUrls.push(url);
+        return createCatalogIndexFetchResponse(catalogIndexContent);
+      },
+    });
+
+    const result = await service.list();
+
+    assert.deepEqual(requestedUrls, [catalogIndexUrl]);
+    assert.equal(result.cwd, cachePath);
+    assert.equal(result.indexFilePath, resolve(cachePath, catalogIndexFileName));
+    assert.deepEqual(result.packages, [{ id: "acme/node-cli", name: "Node CLI", updated: 123 }]);
+    assert.equal(await readFile(resolve(cachePath, catalogIndexFileName), "utf8"), catalogIndexContent);
+  } finally {
+    await rm(cachePath, { recursive: true, force: true });
+  }
+});
+
+test("catalog list returns stale cached index when background refresh fails", async () => {
+  const cachePath = await mkdtemp(resolve(tmpdir(), "spex-catalog-index-stale-cache-"));
+  const catalogIndexPath = resolve(cachePath, catalogIndexFileName);
+  const catalogIndexContent = `packages:
+  - id: acme/cached
+    name: Cached
+    updated: 456
+`;
+  let fetchCount = 0;
+
+  try {
+    await writeFile(catalogIndexPath, catalogIndexContent, "utf8");
+    await utimes(catalogIndexPath, new Date(0), new Date(0));
+
+    const service = new CatalogService({}, undefined, {
+      catalogIndexCacheDirectoryPath: cachePath,
+      now: () => catalogIndexCacheTtlMs + 1,
+      fetch: async () => {
+        fetchCount += 1;
+        throw new Error("network unavailable");
+      },
+    });
+
+    const result = await service.list();
+    await new Promise((resolveBackgroundRefresh) => setImmediate(resolveBackgroundRefresh));
+
+    assert.equal(fetchCount, 1);
+    assert.deepEqual(result.packages, [{ id: "acme/cached", name: "Cached", updated: 456 }]);
+  } finally {
+    await rm(cachePath, { recursive: true, force: true });
+  }
+});
+
+test("catalog list fails when default catalog index cannot be downloaded and cache is missing", async () => {
+  const cachePath = await mkdtemp(resolve(tmpdir(), "spex-catalog-index-missing-cache-"));
+
+  try {
+    const service = new CatalogService({}, undefined, {
+      catalogIndexCacheDirectoryPath: cachePath,
+      fetch: async () => {
+        throw new Error("network unavailable");
+      },
+    });
+
+    await assert.rejects(
+      () => service.list(),
+      (error: unknown) =>
+        error instanceof Error &&
+        error.message ===
+          `Unable to download catalog index from ${catalogIndexUrl}: network unavailable`,
+    );
+  } finally {
+    await rm(cachePath, { recursive: true, force: true });
   }
 });

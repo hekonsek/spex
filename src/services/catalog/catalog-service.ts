@@ -1,13 +1,17 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { homedir } from "node:os";
+import { dirname, resolve } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { BuildService, type BuildPackageMetadata } from "../build/build-service.js";
 
 export const catalogSpecificationFileName = "spex-catalog.yml";
 export const catalogIndexFileName = "spex-catalog-index.yml";
+export const catalogIndexUrl = "https://raw.githubusercontent.com/hekonsek/spex/main/spex-catalog-index.yml";
+export const catalogIndexCacheTtlMs = 15 * 60 * 1000;
 
 const spexDirectoryName = ".spex";
 const spexBuildFileName = "spex.yml";
+const catalogIndexCacheDirectoryPath = resolve(homedir(), ".cache", "spex");
 
 export interface CatalogBuildOptions {
   /**
@@ -82,6 +86,21 @@ export interface CatalogServiceListener {
   onCatalogBuildFinished?(result: CatalogBuildResult): void;
   onBuildFileCreated?(path: string): void;
   onPackageAdded?(packageId: string, buildFilePath: string): void;
+}
+
+interface CatalogIndexFetchResponse {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  text(): Promise<string>;
+}
+
+type CatalogIndexFetch = (url: string) => Promise<CatalogIndexFetchResponse>;
+
+export interface CatalogServiceDependencies {
+  fetch?: CatalogIndexFetch;
+  now?: () => number;
+  catalogIndexCacheDirectoryPath?: string;
 }
 
 export class SpexCatalogError extends Error {
@@ -262,11 +281,27 @@ interface ProjectBuildFileState {
   packages: string[];
 }
 
+interface CatalogIndexFileContent {
+  cwd: string;
+  path: string;
+  content: string;
+}
+
 export class CatalogService {
+  private readonly fetchCatalogIndex: CatalogIndexFetch;
+  private readonly now: () => number;
+  private readonly catalogIndexCacheDirectoryPath: string;
+
   constructor(
     private readonly listener: CatalogServiceListener = {},
     private readonly buildService: BuildService = new BuildService(),
-  ) {}
+    dependencies: CatalogServiceDependencies = {},
+  ) {
+    this.fetchCatalogIndex = dependencies.fetch ?? fetch;
+    this.now = dependencies.now ?? Date.now;
+    this.catalogIndexCacheDirectoryPath =
+      dependencies.catalogIndexCacheDirectoryPath ?? catalogIndexCacheDirectoryPath;
+  }
 
   async build(options: CatalogBuildOptions = {}): Promise<CatalogBuildResult> {
     const cwd = options.cwd ?? process.cwd();
@@ -314,30 +349,26 @@ export class CatalogService {
   }
 
   async list(input: CatalogListInput = {}): Promise<CatalogListResult> {
-    const cwd = input.cwd ?? process.cwd();
-    const indexFilePath = resolve(cwd, catalogIndexFileName);
     const sort = input.sort ?? "id";
     const sortOrder = input.sortOrder ?? "asc";
-    const content = await this.readCatalogIndexFile(indexFilePath);
-    const packages = parseCatalogIndexPackages(content).sort((left, right) =>
+    const catalogIndexFile = await this.readCatalogIndex(input.cwd);
+    const packages = parseCatalogIndexPackages(catalogIndexFile.content).sort((left, right) =>
       compareCatalogPackages(left, right, sort, sortOrder),
     );
 
     return {
-      cwd,
-      indexFilePath,
+      cwd: catalogIndexFile.cwd,
+      indexFilePath: catalogIndexFile.path,
       packages,
     };
   }
 
   async discover(input: CatalogDiscoverInput = {}): Promise<CatalogDiscoverResult> {
     const projectCwd = input.projectCwd ?? process.cwd();
-    const catalogIndexCwd = input.catalogIndexCwd ?? process.cwd();
-    const catalogIndexFilePath = resolve(catalogIndexCwd, catalogIndexFileName);
+    const catalogIndexFile = await this.readCatalogIndex(input.catalogIndexCwd);
 
     const buildFileState = await this.readOrCreateBuildFile(projectCwd);
-    const catalogIndexContent = await this.readCatalogIndexFile(catalogIndexFilePath);
-    const catalogPackageEntries = parseCatalogIndexPackages(catalogIndexContent);
+    const catalogPackageEntries = parseCatalogIndexPackages(catalogIndexFile.content);
     const catalogPackages = catalogPackageEntries.map((catalogPackage) => catalogPackage.id);
     const importedPackageSet = new Set(buildFileState.packages);
     const availablePackageEntries = catalogPackageEntries.filter(
@@ -347,7 +378,7 @@ export class CatalogService {
 
     return {
       projectCwd,
-      catalogIndexFilePath,
+      catalogIndexFilePath: catalogIndexFile.path,
       buildFilePath: buildFileState.path,
       importedPackages: buildFileState.packages,
       catalogPackages,
@@ -377,7 +408,20 @@ export class CatalogService {
     return this.discover(catalogIndexCwd ? { projectCwd, catalogIndexCwd } : { projectCwd });
   }
 
-  private async readCatalogIndexFile(catalogIndexFilePath: string): Promise<string> {
+  private async readCatalogIndex(catalogIndexCwd?: string): Promise<CatalogIndexFileContent> {
+    if (catalogIndexCwd) {
+      const path = resolve(catalogIndexCwd, catalogIndexFileName);
+      return {
+        cwd: catalogIndexCwd,
+        path,
+        content: await this.readLocalCatalogIndexFile(path),
+      };
+    }
+
+    return this.readCachedCatalogIndexFile();
+  }
+
+  private async readLocalCatalogIndexFile(catalogIndexFilePath: string): Promise<string> {
     try {
       return await readFile(catalogIndexFilePath, "utf8");
     } catch (error: unknown) {
@@ -388,6 +432,73 @@ export class CatalogService {
 
       throw error;
     }
+  }
+
+  private async readCachedCatalogIndexFile(): Promise<CatalogIndexFileContent> {
+    const path = resolve(this.catalogIndexCacheDirectoryPath, catalogIndexFileName);
+    const cwd = dirname(path);
+    const cachedIndex = await this.tryReadCachedCatalogIndexFile(path);
+
+    if (cachedIndex) {
+      if (this.now() - cachedIndex.mtimeMs > catalogIndexCacheTtlMs) {
+        void this.writeFreshCatalogIndexFile(path).catch(() => {});
+      }
+
+      return {
+        cwd,
+        path,
+        content: cachedIndex.content,
+      };
+    }
+
+    try {
+      return {
+        cwd,
+        path,
+        content: await this.writeFreshCatalogIndexFile(path),
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new SpexCatalogError(`Unable to download catalog index from ${catalogIndexUrl}: ${message}`);
+    }
+  }
+
+  private async tryReadCachedCatalogIndexFile(
+    catalogIndexFilePath: string,
+  ): Promise<{ content: string; mtimeMs: number } | null> {
+    try {
+      const [content, stats] = await Promise.all([
+        readFile(catalogIndexFilePath, "utf8"),
+        stat(catalogIndexFilePath),
+      ]);
+
+      return {
+        content,
+        mtimeMs: stats.mtimeMs,
+      };
+    } catch (error: unknown) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT") {
+        return null;
+      }
+
+      throw error;
+    }
+  }
+
+  private async writeFreshCatalogIndexFile(catalogIndexFilePath: string): Promise<string> {
+    const response = await this.fetchCatalogIndex(catalogIndexUrl);
+    if (!response.ok) {
+      throw new Error(`${response.status} ${response.statusText}`.trim());
+    }
+
+    const content = await response.text();
+    parseCatalogIndexPackages(content);
+
+    await mkdir(dirname(catalogIndexFilePath), { recursive: true });
+    await writeFile(catalogIndexFilePath, content, "utf8");
+
+    return content;
   }
 
   private async readOrCreateBuildFile(projectCwd: string): Promise<ProjectBuildFileState> {
