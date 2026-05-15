@@ -1,7 +1,7 @@
 packages:
   - id: hekonsek/scriptz
     name: "Scriptz: record your terminal sessions with script"
-    updated: 1778686937
+    updated: 1778746779
   - id: hekonsek/dataformat-syllaibus
     name: "Syllaibus: Syllabus for AI"
     updated: 1774522018
