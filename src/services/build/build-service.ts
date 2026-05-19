@@ -20,8 +20,16 @@ Please take these specifications under consideration when working with this proj
 When in doubt, specifications in \`spex\` should take precedence over imported specifications in \`.spex/imports\`.
 `;
 
-export interface BuildServiceInput {
+export interface BuildOptions {
   cwd?: string;
+}
+
+export interface BuildResult {
+  cwd: string;
+  agentsFilePath: string;
+  buildFilePath: string;
+  importedPackages: ImportedSpexPackage[];
+  removedPackages: RemovedSpexPackage[];
 }
 
 export interface BuildServiceInitInput {
@@ -38,14 +46,6 @@ export interface ImportedSpexPackage {
 export interface RemovedSpexPackage {
   packageId: string;
   targetPath: string;
-}
-
-export interface BuildServiceResult {
-  cwd: string;
-  agentsFilePath: string;
-  buildFilePath: string;
-  importedPackages: ImportedSpexPackage[];
-  removedPackages: RemovedSpexPackage[];
 }
 
 export interface BuildServiceInitResult {
@@ -70,7 +70,7 @@ export interface BuildServiceListener {
   onStalePackageRemovalStarted?(removedPackage: RemovedSpexPackage): void;
   onStalePackageRemoved?(removedPackage: RemovedSpexPackage): void;
   onInitFinished?(result: BuildServiceInitResult): void;
-  onBuildFinished?(result: BuildServiceResult): void;
+  onBuildFinished?(result: BuildResult): void;
 }
 
 export interface BuildPackageMetadataInput {
@@ -645,8 +645,8 @@ export class BuildService {
     return buildFilePath;
   }
 
-  async build(input: BuildServiceInput = {}): Promise<BuildServiceResult> {
-    const cwd = input.cwd ?? process.cwd();
+  async build(options: BuildOptions = {}): Promise<BuildResult> {
+    const cwd = options.cwd ?? process.cwd();
     const buildFilePath = resolve(cwd, ".spex", "spex.yml");
     const agentsFilePath = resolve(cwd, "AGENTS.md");
     const importsRootPath = resolve(cwd, ".spex", "imports");
@@ -660,7 +660,7 @@ export class BuildService {
 
     if (!(await pathExists(buildFilePath))) {
       this.listener.onBuildFileMissing?.(buildFilePath);
-      const result: BuildServiceResult = {
+      const result: BuildResult = {
         cwd,
         agentsFilePath,
         buildFilePath,
@@ -710,7 +710,7 @@ export class BuildService {
       this.listener.onStalePackageRemoved?.(stalePackage);
     }
 
-    const result: BuildServiceResult = {
+    const result: BuildResult = {
       cwd,
       agentsFilePath,
       buildFilePath,
