@@ -22,6 +22,15 @@ Please take these specifications under consideration when working with this proj
 When in doubt, specifications in \`spex\` should take precedence over imported specifications in \`.spex/imports\`.
 `;
 
+export class SpexBuildConfig {
+  export!: SpexBuildConfigExport;
+  packages!: string[];
+}
+
+export class SpexBuildConfigExport {
+  ignores!: string[];
+}
+
 export interface BuildOptions {
   cwd?: string;
 }
@@ -118,15 +127,6 @@ interface ImportedPackageDirectory {
 
 interface CompiledIgnorePattern {
   matcher: Minimatch;
-}
-
-export class SpexBuildConfig {
-  export!: SpexBuildConfigExport;
-  packages!: string[];
-}
-
-export class SpexBuildConfigExport {
-  ignores!: string[];
 }
 
 function isPathWithinOrEqual(parentPath: string, childPath: string): boolean {
