@@ -8,6 +8,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 const execFileAsync = promisify(execFile);
 const defaultPackageHost = "github.com";
+const spexDirectoryName = ".spex";
 
 export const spexAgentsInstruction = `This project contains specifications of different types and instructions located in the following directories:
 - \`spex/**/*.md\`
@@ -441,7 +442,7 @@ async function clonePackageToPath(
   const temporaryBasePath = await mkdtemp(resolve(tmpdir(), "spex-import-"));
   const temporaryClonePath = resolve(temporaryBasePath, "repo");
   const clonedSpexPath = resolve(temporaryClonePath, "spex");
-  const clonedBuildFilePath = resolve(temporaryClonePath, ".spex", "spex.yml");
+  const clonedBuildFilePath = resolve(temporaryClonePath, spexDirectoryName, "spex.yml");
 
   try {
     await execFileAsync("git", ["clone", "--depth", "1", cloneUrl, temporaryClonePath], {
@@ -564,7 +565,7 @@ export class BuildService {
 
   async init(input: BuildServiceInitInput = {}): Promise<BuildServiceInitResult> {
     const cwd = input.cwd ?? process.cwd();
-    const buildFileDirectoryPath = resolve(cwd, ".spex");
+    const buildFileDirectoryPath = resolve(cwd, spexDirectoryName);
 
     this.listener.onInitStarted?.(cwd);
 
@@ -613,7 +614,7 @@ export class BuildService {
 
   async readBuildConfig(input: ReadBuildConfigInput = {}): Promise<ReadBuildConfigResult> {
     const cwd = input.cwd ?? process.cwd();
-    const buildFilePath = resolve(cwd, ".spex", "spex.yml");
+    const buildFilePath = resolve(cwd, spexDirectoryName, "spex.yml");
 
     if (!(await pathExists(buildFilePath))) {
       return {
@@ -636,7 +637,7 @@ export class BuildService {
 
   async writeBuildConfig(config: SpexBuildConfig, input: WriteBuildConfigInput = {}): Promise<string> {
     const cwd = input.cwd ?? process.cwd();
-    const buildFileDirectoryPath = resolve(cwd, ".spex");
+    const buildFileDirectoryPath = resolve(cwd, spexDirectoryName);
     const buildFilePath = resolve(buildFileDirectoryPath, "spex.yml");
 
     await mkdir(buildFileDirectoryPath, { recursive: true });
@@ -647,9 +648,9 @@ export class BuildService {
 
   async build(options: BuildOptions = {}): Promise<BuildResult> {
     const cwd = options.cwd ?? process.cwd();
-    const buildFilePath = resolve(cwd, ".spex", "spex.yml");
+    const buildFilePath = resolve(cwd, spexDirectoryName, "spex.yml");
     const agentsFilePath = resolve(cwd, "AGENTS.md");
-    const importsRootPath = resolve(cwd, ".spex", "imports");
+    const importsRootPath = resolve(cwd, spexDirectoryName, "imports");
     const importedPackages: ImportedSpexPackage[] = [];
     const removedPackages: RemovedSpexPackage[] = [];
 
@@ -681,7 +682,7 @@ export class BuildService {
       const parsedPackage = parsePackageId(rawPackageId);
       const targetPath = resolve(
         cwd,
-        ".spex",
+        spexDirectoryName,
         "imports",
         parsedPackage.host,
         parsedPackage.namespace,
