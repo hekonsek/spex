@@ -167,11 +167,6 @@ function parseStringList(value: unknown): string[] {
     .filter(Boolean);
 }
 
-function parseBuildFileYaml(buildFileContent: string): Record<string, unknown> {
-  const parsed = parseYaml(buildFileContent) as unknown;
-  return asRecord(parsed) ?? {};
-}
-
 function normalizeBuildConfig(config: SpexBuildConfig, root: Record<string, unknown> = {}): SpexBuildConfig {
   const exportSection = asRecord(root["export"]);
 
@@ -182,7 +177,7 @@ function normalizeBuildConfig(config: SpexBuildConfig, root: Record<string, unkn
 }
 
 function parseBuildFilePackages(buildFileContent: string): string[] {
-  const raw = parseBuildFileYaml(buildFileContent);
+  const raw = parseYaml(buildFileContent);
   const config = plainToInstance(SpexBuildConfig, raw);
   config.export = plainToInstance(SpexBuildConfigExport, asRecord(raw["export"]) ?? {});
 
@@ -190,7 +185,7 @@ function parseBuildFilePackages(buildFileContent: string): string[] {
 }
 
 function parseBuildFileExportIgnores(buildFileContent: string): string[] {
-  const raw = parseBuildFileYaml(buildFileContent);
+  const raw = parseYaml(buildFileContent);
   const config = plainToInstance(SpexBuildConfig, raw);
   config.export = plainToInstance(SpexBuildConfigExport, asRecord(raw["export"]) ?? {});
 
@@ -580,7 +575,7 @@ export class BuildService {
     }
 
     const buildFileContent = await readFile(buildFilePath, "utf8");
-    const raw = parseBuildFileYaml(buildFileContent);
+    const raw = parseYaml(buildFileContent);
     const config = plainToInstance(SpexBuildConfig, raw);
     config.export = plainToInstance(SpexBuildConfigExport, asRecord(raw["export"]) ?? {});
 
