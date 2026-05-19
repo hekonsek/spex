@@ -3,6 +3,7 @@ import { cp, mkdir, mkdtemp, readdir, readFile, rm, rmdir, stat, writeFile } fro
 import { homedir, tmpdir } from "node:os";
 import { dirname, relative, resolve } from "node:path";
 import { promisify } from "node:util";
+import { plainToInstance } from "class-transformer";
 import { Minimatch } from "minimatch";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
@@ -120,26 +121,12 @@ interface CompiledIgnorePattern {
 }
 
 export class SpexBuildConfig {
-  constructor(readonly root: Record<string, unknown> = {}) {}
+  export!: SpexBuildConfigExport;
+  packages!: string[];
+}
 
-  get packages(): string[] {
-    return parseStringList(this.root["packages"]);
-  }
-
-  set packages(value: string[]) {
-    this.root["packages"] = Array.from(new Set<string>(parseStringList(value)));
-  }
-
-  get exportIgnores(): string[] {
-    const exportSection = asRecord(this.root["export"]);
-    return parseStringList(exportSection?.["ignores"]);
-  }
-
-  set exportIgnores(value: string[]) {
-    const exportSection = asRecord(this.root["export"]) ?? {};
-    exportSection["ignores"] = Array.from(new Set<string>(parseStringList(value)));
-    this.root["export"] = exportSection;
-  }
+export class SpexBuildConfigExport {
+  ignores!: string[];
 }
 
 function isPathWithinOrEqual(parentPath: string, childPath: string): boolean {
@@ -185,16 +172,39 @@ function parseBuildFileYaml(buildFileContent: string): Record<string, unknown> {
   return asRecord(parsed) ?? {};
 }
 
+function parseBuildConfig(root: Record<string, unknown> = {}): SpexBuildConfig {
+  const config = plainToInstance(SpexBuildConfig, root);
+  const exportSection = asRecord(root["export"]);
+
+  config.export = plainToInstance(SpexBuildConfigExport, exportSection ?? {});
+  config.export.ignores = Array.from(new Set<string>(parseStringList(exportSection?.["ignores"])));
+  config.packages = Array.from(new Set<string>(parseStringList(root["packages"])));
+
+  return config;
+}
+
 function parseBuildFilePackages(buildFileContent: string): string[] {
-  return new SpexBuildConfig(parseBuildFileYaml(buildFileContent)).packages;
+  return parseBuildConfig(parseBuildFileYaml(buildFileContent)).packages;
 }
 
 function parseBuildFileExportIgnores(buildFileContent: string): string[] {
-  return new SpexBuildConfig(parseBuildFileYaml(buildFileContent)).exportIgnores;
+  return parseBuildConfig(parseBuildFileYaml(buildFileContent)).export.ignores;
 }
 
 function stringifyBuildConfig(config: SpexBuildConfig): string {
-  return Object.keys(config.root).length > 0 ? stringifyYaml(config.root) : "";
+  const packages = Array.from(new Set<string>(parseStringList(config.packages)));
+  const ignores = Array.from(new Set<string>(parseStringList(config.export?.ignores)));
+  const root: Record<string, unknown> = {};
+
+  if (ignores.length > 0) {
+    root["export"] = { ignores };
+  }
+
+  if (packages.length > 0) {
+    root["packages"] = packages;
+  }
+
+  return Object.keys(root).length > 0 ? stringifyYaml(root) : "";
 }
 
 function normalizeGlobPath(path: string): string {
@@ -605,7 +615,7 @@ export class BuildService {
         cwd,
         buildFilePath,
         exists: false,
-        config: new SpexBuildConfig(),
+        config: parseBuildConfig(),
       };
     }
 
@@ -615,7 +625,7 @@ export class BuildService {
       cwd,
       buildFilePath,
       exists: true,
-      config: new SpexBuildConfig(parseBuildFileYaml(buildFileContent)),
+      config: parseBuildConfig(parseBuildFileYaml(buildFileContent)),
     };
   }
 
