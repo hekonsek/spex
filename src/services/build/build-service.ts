@@ -557,6 +557,40 @@ async function removeImportedPackage(
 export class BuildService {
   constructor(private readonly listener: BuildServiceListener = {}) {}
 
+  async readBuildConfig(input: ReadBuildConfigInput = {}): Promise<ReadBuildConfigResult> {
+    const cwd = input.cwd ?? process.cwd();
+    const buildFilePath = resolve(cwd, spexDirectoryName, "spex.yml");
+
+    if (!(await pathExists(buildFilePath))) {
+      return {
+        cwd,
+        buildFilePath,
+        exists: false,
+        config: parseBuildConfig(),
+      };
+    }
+
+    const buildFileContent = await readFile(buildFilePath, "utf8");
+
+    return {
+      cwd,
+      buildFilePath,
+      exists: true,
+      config: parseBuildConfig(parseBuildFileYaml(buildFileContent)),
+    };
+  }
+
+  async writeBuildConfig(config: SpexBuildConfig, input: WriteBuildConfigInput = {}): Promise<string> {
+    const cwd = input.cwd ?? process.cwd();
+    const buildFileDirectoryPath = resolve(cwd, spexDirectoryName);
+    const buildFilePath = resolve(buildFileDirectoryPath, "spex.yml");
+
+    await mkdir(buildFileDirectoryPath, { recursive: true });
+    await writeFile(buildFilePath, stringifyBuildConfig(config), "utf8");
+
+    return buildFilePath;
+  }
+
   async init(input: BuildServiceInitInput = {}): Promise<BuildServiceInitResult> {
     const cwd = input.cwd ?? process.cwd();
     const buildFileDirectoryPath = resolve(cwd, spexDirectoryName);
@@ -604,40 +638,6 @@ export class BuildService {
     this.listener.onInitFinished?.(result);
 
     return result;
-  }
-
-  async readBuildConfig(input: ReadBuildConfigInput = {}): Promise<ReadBuildConfigResult> {
-    const cwd = input.cwd ?? process.cwd();
-    const buildFilePath = resolve(cwd, spexDirectoryName, "spex.yml");
-
-    if (!(await pathExists(buildFilePath))) {
-      return {
-        cwd,
-        buildFilePath,
-        exists: false,
-        config: parseBuildConfig(),
-      };
-    }
-
-    const buildFileContent = await readFile(buildFilePath, "utf8");
-
-    return {
-      cwd,
-      buildFilePath,
-      exists: true,
-      config: parseBuildConfig(parseBuildFileYaml(buildFileContent)),
-    };
-  }
-
-  async writeBuildConfig(config: SpexBuildConfig, input: WriteBuildConfigInput = {}): Promise<string> {
-    const cwd = input.cwd ?? process.cwd();
-    const buildFileDirectoryPath = resolve(cwd, spexDirectoryName);
-    const buildFilePath = resolve(buildFileDirectoryPath, "spex.yml");
-
-    await mkdir(buildFileDirectoryPath, { recursive: true });
-    await writeFile(buildFilePath, stringifyBuildConfig(config), "utf8");
-
-    return buildFilePath;
   }
 
   async build(options: BuildOptions = {}): Promise<BuildResult> {
