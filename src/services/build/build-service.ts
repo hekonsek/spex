@@ -172,11 +172,9 @@ function parseBuildFileYaml(buildFileContent: string): Record<string, unknown> {
   return asRecord(parsed) ?? {};
 }
 
-function parseBuildConfig(root: Record<string, unknown> = {}): SpexBuildConfig {
-  const config = plainToInstance(SpexBuildConfig, root);
+function normalizeBuildConfig(config: SpexBuildConfig, root: Record<string, unknown> = {}): SpexBuildConfig {
   const exportSection = asRecord(root["export"]);
 
-  config.export = plainToInstance(SpexBuildConfigExport, exportSection ?? {});
   config.export.ignores = Array.from(new Set<string>(parseStringList(exportSection?.["ignores"])));
   config.packages = Array.from(new Set<string>(parseStringList(root["packages"])));
 
@@ -184,11 +182,19 @@ function parseBuildConfig(root: Record<string, unknown> = {}): SpexBuildConfig {
 }
 
 function parseBuildFilePackages(buildFileContent: string): string[] {
-  return parseBuildConfig(parseBuildFileYaml(buildFileContent)).packages;
+  const raw = parseBuildFileYaml(buildFileContent);
+  const config = plainToInstance(SpexBuildConfig, raw);
+  config.export = plainToInstance(SpexBuildConfigExport, asRecord(raw["export"]) ?? {});
+
+  return normalizeBuildConfig(config, raw).packages;
 }
 
 function parseBuildFileExportIgnores(buildFileContent: string): string[] {
-  return parseBuildConfig(parseBuildFileYaml(buildFileContent)).export.ignores;
+  const raw = parseBuildFileYaml(buildFileContent);
+  const config = plainToInstance(SpexBuildConfig, raw);
+  config.export = plainToInstance(SpexBuildConfigExport, asRecord(raw["export"]) ?? {});
+
+  return normalizeBuildConfig(config, raw).export.ignores;
 }
 
 function stringifyBuildConfig(config: SpexBuildConfig): string {
@@ -562,21 +568,27 @@ export class BuildService {
     const buildFilePath = resolve(cwd, spexDirectoryName, "spex.yml");
 
     if (!(await pathExists(buildFilePath))) {
+      const config = plainToInstance(SpexBuildConfig, {});
+      config.export = plainToInstance(SpexBuildConfigExport, {});
+
       return {
         cwd,
         buildFilePath,
         exists: false,
-        config: parseBuildConfig(),
+        config: normalizeBuildConfig(config),
       };
     }
 
     const buildFileContent = await readFile(buildFilePath, "utf8");
+    const raw = parseBuildFileYaml(buildFileContent);
+    const config = plainToInstance(SpexBuildConfig, raw);
+    config.export = plainToInstance(SpexBuildConfigExport, asRecord(raw["export"]) ?? {});
 
     return {
       cwd,
       buildFilePath,
       exists: true,
-      config: parseBuildConfig(parseBuildFileYaml(buildFileContent)),
+      config: normalizeBuildConfig(config, raw),
     };
   }
 
