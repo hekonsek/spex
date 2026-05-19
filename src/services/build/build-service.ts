@@ -180,13 +180,6 @@ function normalizeBuildConfig(config: SpexBuildConfig, root: Record<string, unkn
   return config;
 }
 
-function parseBuildFilePackages(buildFileContent: string): string[] {
-  const raw = parseYaml(buildFileContent);
-  const config = plainToInstance(SpexBuildConfig, raw);
-
-  return normalizeBuildConfig(config, raw).packages;
-}
-
 function parseBuildFileExportIgnores(buildFileContent: string): string[] {
   const raw = parseYaml(buildFileContent);
   const config = plainToInstance(SpexBuildConfig, raw);
@@ -649,7 +642,6 @@ export class BuildService {
 
   async build(options: BuildOptions = {}): Promise<BuildResult> {
     const cwd = options.cwd ?? process.cwd();
-    const buildFilePath = resolve(cwd, spexDirectoryName, "spex.yml");
     const agentsFilePath = resolve(cwd, "AGENTS.md");
     const importsRootPath = resolve(cwd, spexDirectoryName, "imports");
     const importedPackages: ImportedSpexPackage[] = [];
@@ -660,7 +652,10 @@ export class BuildService {
     await writeFile(agentsFilePath, spexAgentsInstruction, "utf8");
     this.listener.onAgentsFileWritten?.(agentsFilePath);
 
-    if (!(await pathExists(buildFilePath))) {
+    const buildConfigResult = await this.readBuildConfig({ cwd });
+    const buildFilePath = buildConfigResult.buildFilePath;
+
+    if (!buildConfigResult.exists) {
       this.listener.onBuildFileMissing?.(buildFilePath);
       const result: BuildResult = {
         cwd,
@@ -674,8 +669,7 @@ export class BuildService {
     }
 
     this.listener.onBuildFileDetected?.(buildFilePath);
-    const buildFileContent = await readFile(buildFilePath, "utf8");
-    const packageIds = parseBuildFilePackages(buildFileContent);
+    const packageIds = buildConfigResult.config.packages;
     this.listener.onBuildPackagesResolved?.(packageIds);
     const expectedTargetPaths = new Set<string>();
 
