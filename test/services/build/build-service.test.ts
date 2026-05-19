@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import { parse as parseYaml } from "yaml";
-import { BuildService, SpexBuildConfig, spexAgentsInstruction } from "../../src/services/build/build-service.js";
+import { BuildService, SpexBuildConfig, spexAgentsInstruction } from "../../../src/services/build/build-service.js";
 
 const execFileAsync = promisify(execFile);
 const gitTestHost = "git.example.test";
