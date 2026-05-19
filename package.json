@@ -42,6 +42,7 @@
     "minimatch": "^10.2.2",
     "ora": "^9.3.0",
     "pino": "^10.3.1",
+    "reflect-metadata": "^0.2.2",
     "yaml": "^2.8.3"
   },
   "devDependencies": {

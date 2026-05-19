@@ -1,9 +1,10 @@
+import "reflect-metadata";
 import { execFile } from "node:child_process";
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, relative, resolve } from "node:path";
 import { promisify } from "node:util";
-import { plainToInstance } from "class-transformer";
+import { plainToInstance, Type } from "class-transformer";
 import { Minimatch } from "minimatch";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
@@ -22,14 +23,17 @@ Please take these specifications under consideration when working with this proj
 When in doubt, specifications in \`spex\` should take precedence over imported specifications in \`.spex/imports\`.
 `;
 
-export class SpexBuildConfig {
-  export!: SpexBuildConfigExport;
-  packages!: string[];
-}
-
 export class SpexBuildConfigExport {
   ignores!: string[];
 }
+
+export class SpexBuildConfig {
+  export = new SpexBuildConfigExport();
+
+  packages!: string[];
+}
+
+Type(() => SpexBuildConfigExport)(SpexBuildConfig.prototype, "export");
 
 export interface BuildOptions {
   cwd?: string;
@@ -179,7 +183,6 @@ function normalizeBuildConfig(config: SpexBuildConfig, root: Record<string, unkn
 function parseBuildFilePackages(buildFileContent: string): string[] {
   const raw = parseYaml(buildFileContent);
   const config = plainToInstance(SpexBuildConfig, raw);
-  config.export = plainToInstance(SpexBuildConfigExport, asRecord(raw["export"]) ?? {});
 
   return normalizeBuildConfig(config, raw).packages;
 }
@@ -187,7 +190,6 @@ function parseBuildFilePackages(buildFileContent: string): string[] {
 function parseBuildFileExportIgnores(buildFileContent: string): string[] {
   const raw = parseYaml(buildFileContent);
   const config = plainToInstance(SpexBuildConfig, raw);
-  config.export = plainToInstance(SpexBuildConfigExport, asRecord(raw["export"]) ?? {});
 
   return normalizeBuildConfig(config, raw).export.ignores;
 }
@@ -564,7 +566,6 @@ export class BuildService {
 
     if (!(await pathExists(buildFilePath))) {
       const config = plainToInstance(SpexBuildConfig, {});
-      config.export = plainToInstance(SpexBuildConfigExport, {});
 
       return {
         cwd,
@@ -577,7 +578,6 @@ export class BuildService {
     const buildFileContent = await readFile(buildFilePath, "utf8");
     const raw = parseYaml(buildFileContent);
     const config = plainToInstance(SpexBuildConfig, raw);
-    config.export = plainToInstance(SpexBuildConfigExport, asRecord(raw["export"]) ?? {});
 
     return {
       cwd,
