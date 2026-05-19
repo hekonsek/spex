@@ -127,7 +127,7 @@ export class SpexBuildConfig {
   }
 
   set packages(value: string[]) {
-    this.root["packages"] = uniqueStrings(parseStringList(value));
+    this.root["packages"] = Array.from(new Set<string>(parseStringList(value)));
   }
 
   get exportIgnores(): string[] {
@@ -137,7 +137,7 @@ export class SpexBuildConfig {
 
   set exportIgnores(value: string[]) {
     const exportSection = asRecord(this.root["export"]) ?? {};
-    exportSection["ignores"] = uniqueStrings(parseStringList(value));
+    exportSection["ignores"] = Array.from(new Set<string>(parseStringList(value)));
     this.root["export"] = exportSection;
   }
 }
@@ -178,22 +178,6 @@ function parseStringList(value: unknown): string[] {
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-function uniqueStrings(values: string[]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-
-  for (const value of values) {
-    if (seen.has(value)) {
-      continue;
-    }
-
-    seen.add(value);
-    result.push(value);
-  }
-
-  return result;
 }
 
 function parseBuildFileYaml(buildFileContent: string): Record<string, unknown> {
