@@ -23,6 +23,8 @@ Please take these specifications under consideration when working with this proj
 When in doubt, specifications in \`spex\` should take precedence over imported specifications in \`.spex/imports\`.
 `;
 
+// Domain models
+
 export class SpexBuildConfigExport {
   ignores!: string[];
 }
@@ -35,12 +37,13 @@ export class SpexBuildConfig {
 
 Type(() => SpexBuildConfigExport)(SpexBuildConfig.prototype, "export");
 
+// Operations input/output models
+
 export interface BuildOptions {
   cwd?: string;
 }
 
 export interface BuildResult {
-  cwd: string;
   agentsFilePath: string;
   buildFilePath: string;
   importedPackages: ImportedSpexPackage[];
@@ -658,7 +661,6 @@ export class BuildService {
     if (!buildConfigResult.exists) {
       this.listener.onBuildFileMissing?.(buildFilePath);
       const result: BuildResult = {
-        cwd,
         agentsFilePath,
         buildFilePath,
         importedPackages,
@@ -707,7 +709,6 @@ export class BuildService {
     }
 
     const result: BuildResult = {
-      cwd,
       agentsFilePath,
       buildFilePath,
       importedPackages,
