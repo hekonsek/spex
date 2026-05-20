@@ -183,13 +183,6 @@ function normalizeBuildConfig(config: SpexBuildConfig, root: Record<string, unkn
   return config;
 }
 
-function parseBuildFileExportIgnores(buildFileContent: string): string[] {
-  const raw = parseYaml(buildFileContent);
-  const config = plainToInstance(SpexBuildConfig, raw);
-
-  return normalizeBuildConfig(config, raw).export.ignores;
-}
-
 function stringifyBuildConfig(config: SpexBuildConfig): string {
   const packages = Array.from(new Set<string>(parseStringList(config.packages)));
   const ignores = Array.from(new Set<string>(parseStringList(config.export?.ignores)));
@@ -244,15 +237,6 @@ function matchesAnyIgnoreDirectoryPattern(
     (pattern) =>
       pattern.matcher.match(normalizedRelativePath) || pattern.matcher.match(normalizedRelativePath, true),
   );
-}
-
-async function readExportIgnorePatterns(buildFilePath: string): Promise<string[]> {
-  if (!(await pathExists(buildFilePath))) {
-    return [];
-  }
-
-  const buildFileContent = await readFile(buildFilePath, "utf8");
-  return parseBuildFileExportIgnores(buildFileContent);
 }
 
 async function copyPackageSpexDirectory(
@@ -424,53 +408,6 @@ async function tryReadRepositoryName(cacheRepositoryPath: string): Promise<strin
   }
 
   return null;
-}
-
-async function clonePackageToPath(
-  cloneUrl: string,
-  targetPath: string,
-  cwd: string,
-  sourceLabel = cloneUrl,
-): Promise<void> {
-  const temporaryBasePath = await mkdtemp(resolve(tmpdir(), "spex-import-"));
-  const temporaryClonePath = resolve(temporaryBasePath, "repo");
-  const clonedSpexPath = resolve(temporaryClonePath, "spex");
-  const clonedBuildFilePath = resolve(temporaryClonePath, spexDirectoryName, "spex.yml");
-
-  try {
-    await execFileAsync("git", ["clone", "--depth", "1", cloneUrl, temporaryClonePath], {
-      cwd,
-      maxBuffer: 10 * 1024 * 1024,
-    });
-
-    if (!(await pathExists(clonedSpexPath))) {
-      throw new Error(`Missing spex directory in downloaded package: ${sourceLabel}`);
-    }
-
-    const exportIgnorePatterns = await readExportIgnorePatterns(clonedBuildFilePath);
-
-    await rm(targetPath, { recursive: true, force: true });
-    await mkdir(dirname(targetPath), { recursive: true });
-    await copyPackageSpexDirectory(clonedSpexPath, targetPath, exportIgnorePatterns);
-  } catch (error: unknown) {
-    const typedError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
-    const commandOutputDetails = [typedError.stderr, typedError.stdout].filter(Boolean).join("\n").trim();
-    const errorMessage = error instanceof Error ? error.message.trim() : "";
-    const details = commandOutputDetails || errorMessage;
-    const suffix = details ? ` ${details}` : "";
-    throw new Error(`Failed to import package from ${sourceLabel}.${suffix}`.trim());
-  } finally {
-    await rm(temporaryBasePath, { recursive: true, force: true });
-  }
-}
-
-async function clonePackageToPathFromCache(
-  parsedPackage: ParsedPackageId,
-  targetPath: string,
-  cwd: string,
-): Promise<void> {
-  const cacheRepositoryPath = await ensureCachedPackageRepositoryMirror(parsedPackage, cwd);
-  await clonePackageToPath(cacheRepositoryPath, targetPath, cwd, parsedPackage.cloneUrl);
 }
 
 async function listImportedPackageDirectories(importsRootPath: string): Promise<ImportedPackageDirectory[]> {
@@ -688,7 +625,8 @@ export class BuildService {
       expectedTargetPaths.add(targetPath);
 
       this.listener.onPackageImportStarted?.(parsedPackage.raw, parsedPackage.cloneUrl, targetPath);
-      await clonePackageToPathFromCache(parsedPackage, targetPath, cwd);
+      const cacheRepositoryPath = await ensureCachedPackageRepositoryMirror(parsedPackage, cwd);
+      await this.clonePackageToPath(cacheRepositoryPath, targetPath, cwd, parsedPackage.cloneUrl);
 
       const importedPackage: ImportedSpexPackage = {
         packageId: parsedPackage.raw,
@@ -751,4 +689,39 @@ export class BuildService {
     return resolve(cwd, spexDirectoryName, "spex.yml");
   }
 
+  private async clonePackageToPath(
+    cloneUrl: string,
+    targetPath: string,
+    cwd: string,
+    sourceLabel = cloneUrl,
+  ): Promise<void> {
+    const temporaryBasePath = await mkdtemp(resolve(tmpdir(), "spex-import-"));
+    const temporaryClonePath = resolve(temporaryBasePath, "repo");
+    const clonedSpexPath = resolve(temporaryClonePath, "spex");
+    const clonedSpexBuildConfig = await this.readSpexBuildConfig({ cwd: temporaryClonePath });
+
+    try {
+      await execFileAsync("git", ["clone", "--depth", "1", cloneUrl, temporaryClonePath], {
+        cwd,
+        maxBuffer: 10 * 1024 * 1024,
+      });
+
+      if (!(await pathExists(clonedSpexPath))) {
+        throw new Error(`Missing spex directory in downloaded package: ${sourceLabel}`);
+      }
+
+      await rm(targetPath, { recursive: true, force: true });
+      await mkdir(dirname(targetPath), { recursive: true });
+      await copyPackageSpexDirectory(clonedSpexPath, targetPath, clonedSpexBuildConfig.config.export.ignores);
+    } catch (error: unknown) {
+      const typedError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
+      const commandOutputDetails = [typedError.stderr, typedError.stdout].filter(Boolean).join("\n").trim();
+      const errorMessage = error instanceof Error ? error.message.trim() : "";
+      const details = commandOutputDetails || errorMessage;
+      const suffix = details ? ` ${details}` : "";
+      throw new Error(`Failed to import package from ${sourceLabel}.${suffix}`.trim());
+    } finally {
+      await rm(temporaryBasePath, { recursive: true, force: true });
+    }
+  }
 }
