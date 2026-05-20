@@ -558,7 +558,7 @@ export class BuildService {
 
   async readSpexBuildConfig(input: ReadSpexBuildConfigOptions = {}): Promise<ReadSpexBuildConfigResult> {
     const cwd = input.cwd ?? process.cwd();
-    const buildFilePath = resolve(cwd, spexDirectoryName, "spex.yml");
+    const buildFilePath = this.resolveBuildFilePath(cwd);
 
     if (!(await pathExists(buildFilePath))) {
       const config = plainToInstance(SpexBuildConfig, {});
@@ -585,8 +585,8 @@ export class BuildService {
 
   async writeSpexBuildConfig(config: SpexBuildConfig, input: WriteSpexBuildConfigOptions = {}): Promise<string> {
     const cwd = input.cwd ?? process.cwd();
-    const buildFileDirectoryPath = resolve(cwd, spexDirectoryName);
-    const buildFilePath = resolve(buildFileDirectoryPath, "spex.yml");
+    const buildFilePath = this.resolveBuildFilePath(cwd);
+    const buildFileDirectoryPath = dirname(buildFilePath);
 
     await mkdir(buildFileDirectoryPath, { recursive: true });
     await writeFile(buildFilePath, stringifyBuildConfig(config), "utf8");
@@ -744,4 +744,11 @@ export class BuildService {
       throw new Error(`Failed to fetch package metadata for ${parsedPackage.raw}.${suffix}`.trim());
     }
   }
+
+  // Helpers
+
+  private resolveBuildFilePath(cwd: string): string {
+    return resolve(cwd, spexDirectoryName, "spex.yml");
+  }
+
 }
