@@ -366,7 +366,7 @@ test("readBuildConfig returns parsed build config", async () => {
     );
 
     const service = new BuildService();
-    const result = await service.readBuildConfig({ cwd: projectPath });
+    const result = await service.readSpexBuildConfig({ cwd: projectPath });
 
     assert.equal(result.exists, true);
     assert.equal(result.config instanceof SpexBuildConfig, true);
@@ -388,7 +388,7 @@ test("writeBuildConfig writes build config", async () => {
     config.export.ignores = ["**/*.pyc"];
     config.packages = ["acme/alpha", "acme/beta", "acme/beta"];
 
-    const buildFilePath = await service.writeBuildConfig(config, { cwd: projectPath });
+    const buildFilePath = await service.writeSpexBuildConfig(config, { cwd: projectPath });
     const buildFileContent = await readFile(buildFilePath, "utf8");
     const root = parseYaml(buildFileContent) as {
       export?: { ignores?: string[] };

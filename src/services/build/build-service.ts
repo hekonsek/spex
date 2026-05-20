@@ -39,19 +39,19 @@ Type(() => SpexBuildConfigExport)(SpexBuildConfig.prototype, "export");
 
 // Operations input/output models
 
-export interface ReadBuildConfigInput {
+export interface ReadSpexBuildConfigOptions {
   cwd?: string;
 }
 
-export interface WriteBuildConfigInput {
-  cwd?: string;
-}
-
-export interface ReadBuildConfigResult {
+export interface ReadSpexBuildConfigResult {
   cwd: string;
   buildFilePath: string;
   exists: boolean;
   config: SpexBuildConfig;
+}
+
+export interface WriteSpexBuildConfigOptions {
+  cwd?: string;
 }
 
 export interface BuildOptions {
@@ -556,7 +556,7 @@ async function removeImportedPackage(
 export class BuildService {
   constructor(private readonly listener: BuildServiceListener = {}) {}
 
-  async readBuildConfig(input: ReadBuildConfigInput = {}): Promise<ReadBuildConfigResult> {
+  async readSpexBuildConfig(input: ReadSpexBuildConfigOptions = {}): Promise<ReadSpexBuildConfigResult> {
     const cwd = input.cwd ?? process.cwd();
     const buildFilePath = resolve(cwd, spexDirectoryName, "spex.yml");
 
@@ -583,7 +583,7 @@ export class BuildService {
     };
   }
 
-  async writeBuildConfig(config: SpexBuildConfig, input: WriteBuildConfigInput = {}): Promise<string> {
+  async writeSpexBuildConfig(config: SpexBuildConfig, input: WriteSpexBuildConfigOptions = {}): Promise<string> {
     const cwd = input.cwd ?? process.cwd();
     const buildFileDirectoryPath = resolve(cwd, spexDirectoryName);
     const buildFilePath = resolve(buildFileDirectoryPath, "spex.yml");
@@ -600,7 +600,7 @@ export class BuildService {
 
     this.listener.onInitStarted?.(cwd);
 
-    const buildConfigResult = await this.readBuildConfig({ cwd });
+    const buildConfigResult = await this.readSpexBuildConfig({ cwd });
     const buildFilePath = buildConfigResult.buildFilePath;
     const config = buildConfigResult.config;
     const packages = new Set(config.packages);
@@ -627,7 +627,7 @@ export class BuildService {
 
     if (addedPackages.length > 0) {
       config.packages = [...packages];
-      await this.writeBuildConfig(config, { cwd });
+      await this.writeSpexBuildConfig(config, { cwd });
     }
 
     const result: BuildServiceInitResult = {
@@ -655,7 +655,7 @@ export class BuildService {
     await writeFile(agentsFilePath, spexAgentsInstruction, "utf8");
     this.listener.onAgentsFileWritten?.(agentsFilePath);
 
-    const buildConfigResult = await this.readBuildConfig({ cwd });
+    const buildConfigResult = await this.readSpexBuildConfig({ cwd });
     const buildFilePath = buildConfigResult.buildFilePath;
 
     if (!buildConfigResult.exists) {
