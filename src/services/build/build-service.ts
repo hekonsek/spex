@@ -39,6 +39,21 @@ Type(() => SpexBuildConfigExport)(SpexBuildConfig.prototype, "export");
 
 // Operations input/output models
 
+export interface ReadBuildConfigInput {
+  cwd?: string;
+}
+
+export interface WriteBuildConfigInput {
+  cwd?: string;
+}
+
+export interface ReadBuildConfigResult {
+  cwd: string;
+  buildFilePath: string;
+  exists: boolean;
+  config: SpexBuildConfig;
+}
+
 export interface BuildOptions {
   cwd?: string;
 }
@@ -99,21 +114,6 @@ export interface BuildPackageMetadataInput {
 export interface BuildPackageMetadata {
   name: string;
   updated: number;
-}
-
-export interface ReadBuildConfigInput {
-  cwd?: string;
-}
-
-export interface WriteBuildConfigInput {
-  cwd?: string;
-}
-
-export interface ReadBuildConfigResult {
-  cwd: string;
-  buildFilePath: string;
-  exists: boolean;
-  config: SpexBuildConfig;
 }
 
 export interface CachedPackageRepository {
