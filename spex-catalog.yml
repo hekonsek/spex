@@ -13,6 +13,7 @@ packages:
   # Cloud
   - hekonsek/adr-terraform
   - hekonsek/adr-minikube
+  - hekonsek/terraform-gcp-vpc
 
   # Data
   - hekonsek/adr-kafka
