@@ -16,13 +16,13 @@ packages:
     updated: 1778656973
   - id: hekonsek/adr-terraform
     name: ADR (Architecture Decision Record) collection for Terraform
-    updated: 1774846190
+    updated: 1780468087
   - id: hekonsek/adr-minikube
     name: ADR (Architecture Decision Record) collection for Minikube
     updated: 1774533399
   - id: hekonsek/terraform-gcp-vpc
     name: Terraform module for GCP VPC
-    updated: 1779802325
+    updated: 1780467676
   - id: hekonsek/terraform-gcp-gke
     name: "Template: GCP GKE cluster"
     updated: 1780400704
