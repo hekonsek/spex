@@ -23,6 +23,9 @@ packages:
   - id: hekonsek/terraform-gcp-vpc
     name: Terraform module for GCP VPC
     updated: 1779802325
+  - id: hekonsek/terraform-gcp-gke
+    name: "Template: GCP GKE cluster"
+    updated: 1780400704
   - id: hekonsek/adr-kafka
     name: ADR (Architecture Decision Record) collection for Kafka
     updated: 1777896449
