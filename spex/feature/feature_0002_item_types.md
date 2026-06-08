@@ -6,3 +6,4 @@ Spex support the following item types with their respective codes:
 - Data Format ➡️ `dataformat`
 - ADR (Architecture Decision Record) ➡️ `adr`
 - Product Feature ➡️ `feature`
+- Terraform Module ➡️ `terraform`
