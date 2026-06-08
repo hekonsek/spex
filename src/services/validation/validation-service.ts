@@ -10,7 +10,7 @@ export interface ValidationServiceListener {
   onTypeDirectoryValidated?(type: SupportedSpexType, markdownFileCount: number): void;
 }
 
-export type SupportedSpexType = "adr" | "instruction" | "dataformat" | "feature";
+export type SupportedSpexType = "adr" | "instruction" | "dataformat" | "feature" | "terraform";
 
 export interface ValidatedType {
   type: SupportedSpexType;
@@ -22,7 +22,7 @@ export interface ValidateServiceResult {
   validatedTypes: ValidatedType[];
 }
 
-export const supportedSpexTypes = ["adr", "instruction", "dataformat", "feature"] as const;
+export const supportedSpexTypes = ["adr", "instruction", "dataformat", "feature", "terraform"] as const;
 
 export class SpexValidationError extends Error {
   constructor(public readonly issues: string[]) {
@@ -71,7 +71,7 @@ export class ValidationService {
 
       if (existingTypeDirectories.length === 0) {
         issues.push(
-          "Missing supported type directory in spex. Expected at least one of: adr, instruction, dataformat, feature.",
+          `Missing supported type directory in spex. Expected at least one of: ${supportedSpexTypes.join(", ")}.`,
         );
       }
 

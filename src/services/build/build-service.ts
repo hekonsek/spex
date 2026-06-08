@@ -16,7 +16,7 @@ export const spexAgentsInstruction = `This project contains specifications of di
 - \`spex/**/*.md\`
 - \`.spex/imports/**/*.md\`
 
-Depending on the instruction or specification type it will be located in a relevant subdirectory like \`adr\`, \`instruction\`, \`dataformat\`, \`feature\`, etc.
+Depending on the instruction or specification type it will be located in a relevant subdirectory like \`adr\`, \`instruction\`, \`dataformat\`, \`feature\`, \`terraform\`, etc.
 
 Please take these specifications under consideration when working with this project.
 
