@@ -15,6 +15,7 @@ packages:
   - hekonsek/adr-minikube
   - hekonsek/terraform-gcp-vpc
   - hekonsek/terraform-gcp-gke
+  - hekonsek/terraform-gcp-gke-team
 
   # Data
   - hekonsek/adr-kafka
