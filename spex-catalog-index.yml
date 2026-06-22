@@ -29,6 +29,12 @@ packages:
   - id: hekonsek/terraform-gcp-gke-team
     name: Terraform module for GCP GKE team onboarding
     updated: 1781188563
+  - id: hekonsek/terraform-aws-vpc
+    name: Terraform module for AWS VPC
+    updated: 1781784269
+  - id: hekonsek/terraform-aws-eks
+    name: hekonsek/terraform-aws-eks
+    updated: 1623749340
   - id: hekonsek/adr-kafka
     name: ADR (Architecture Decision Record) collection for Kafka
     updated: 1777896449
