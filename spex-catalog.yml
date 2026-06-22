@@ -16,6 +16,9 @@ packages:
   - hekonsek/terraform-gcp-vpc
   - hekonsek/terraform-gcp-gke
   - hekonsek/terraform-gcp-gke-team
+  - hekonsek/terraform-aws-vpc
+  - hekonsek/terraform-aws-eks
+
 
   # Data
   - hekonsek/adr-kafka
