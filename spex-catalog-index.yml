@@ -33,8 +33,8 @@ packages:
     name: Terraform module for AWS VPC
     updated: 1781784269
   - id: hekonsek/terraform-aws-eks
-    name: hekonsek/terraform-aws-eks
-    updated: 1623749340
+    name: Terraform module for AWS EKS
+    updated: 1782118581
   - id: hekonsek/adr-kafka
     name: ADR (Architecture Decision Record) collection for Kafka
     updated: 1777896449
