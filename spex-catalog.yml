@@ -18,6 +18,7 @@ packages:
   - hekonsek/terraform-gcp-gke-team
   - hekonsek/terraform-aws-vpc
   - hekonsek/terraform-aws-eks
+  - hekonsek/terraform-aws-eks-team
 
 
   # Data
