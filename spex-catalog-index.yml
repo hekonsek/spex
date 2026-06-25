@@ -35,6 +35,9 @@ packages:
   - id: hekonsek/terraform-aws-eks
     name: Terraform module for AWS EKS
     updated: 1782199434
+  - id: hekonsek/terraform-aws-eks-team
+    name: Terraform module for AWS EKS team onboarding
+    updated: 1782364763
   - id: hekonsek/adr-kafka
     name: ADR (Architecture Decision Record) collection for Kafka
     updated: 1777896449
