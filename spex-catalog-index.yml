@@ -34,7 +34,7 @@ packages:
     updated: 1781784269
   - id: hekonsek/terraform-aws-eks
     name: Terraform module for AWS EKS
-    updated: 1782199434
+    updated: 1782394351
   - id: hekonsek/terraform-aws-eks-team
     name: Terraform module for AWS EKS team onboarding
     updated: 1782364763
